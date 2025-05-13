@@ -3,7 +3,7 @@
 import heapq
 from collections import defaultdict
 
-SIMULATION_TIME_MS = 1000
+SIMULATION_TIME_MS = 400
 
 runnables = {
     'RadarCapture': {
@@ -108,13 +108,16 @@ execution_log = []
 
 
 def schedule_periodic_runnables():
-    """Schedule all periodic tasks up to the simulation time limit."""
+    """Schedule all periodic runnables up to the simulation time limit,
+    ensuring sequential execution."""
+    last_periodic_time = 0
     for name, props in runnables.items():
         if props['type'] == 'periodic':
-            t = 0
+            t = last_periodic_time
             while t <= SIMULATION_TIME_MS:
                 heapq.heappush(event_queue, (t, name))
                 t += props['period']
+            last_periodic_time += props['execution_time']
 
 
 def is_deps_ready(runnable_name, check_time):
