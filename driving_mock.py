@@ -5,6 +5,8 @@ from collections import defaultdict
 
 SIMULATION_TIME_MS = 400
 
+LAST_EXECUTION_FINISH_TIME = 0
+
 runnables = {
     'RadarCapture': {
         'criticality': 1,
@@ -110,14 +112,14 @@ execution_log = []
 def schedule_periodic_runnables():
     """Schedule all periodic runnables up to the simulation time limit,
     ensuring sequential execution."""
-    last_periodic_time = 0
+    global LAST_EXECUTION_FINISH_TIME
     for name, props in runnables.items():
         if props['type'] == 'periodic':
-            t = last_periodic_time
+            t = LAST_EXECUTION_FINISH_TIME
             while t <= SIMULATION_TIME_MS:
                 heapq.heappush(event_queue, (t, name))
                 t += props['period']
-            last_periodic_time += props['execution_time']
+            LAST_EXECUTION_FINISH_TIME += props['execution_time']
 
 
 def is_deps_ready(current_runnable, check_time):
@@ -128,10 +130,12 @@ def is_deps_ready(current_runnable, check_time):
 
 def schedule_event_runnables(triggered, check_time):
     """Schedule event-driven tasks that depend on the triggered tasks."""
+    global LAST_EXECUTION_FINISH_TIME
     for name, props in runnables.items():
         if props['type'] == 'event' and set(props.get('deps', [])) & set(triggered):
-            if is_deps_ready(name, check_time):
+            if is_deps_ready(name, check_time) and check_time >= LAST_EXECUTION_FINISH_TIME:
                 heapq.heappush(event_queue, (check_time, name))
+                LAST_EXECUTION_FINISH_TIME += props['execution_time']
 
 
 schedule_periodic_runnables()
