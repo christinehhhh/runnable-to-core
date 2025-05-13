@@ -1,5 +1,5 @@
-import networkx as nx
 import matplotlib.pyplot as plt
+import networkx as nx
 
 # Define runnables with execution times and CPU affinities
 runnables = {
