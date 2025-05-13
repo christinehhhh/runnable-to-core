@@ -120,9 +120,9 @@ def schedule_periodic_runnables():
             last_periodic_time += props['execution_time']
 
 
-def is_deps_ready(runnable_name, check_time):
+def is_deps_ready(current_runnable, check_time):
     """Check if all dependencies of a runnable have completed by the current time."""
-    deps = runnables[runnable_name].get('deps', [])
+    deps = runnables[current_runnable].get('deps', [])
     return all(last_output[dep] >= 0 and last_output[dep] <= check_time for dep in deps)
 
 
