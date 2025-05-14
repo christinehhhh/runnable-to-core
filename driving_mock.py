@@ -14,6 +14,7 @@ runnables = {
         'period': 75,
         'execution_time': 2,
         'type': 'periodic',
+        'deps': []
     },
     'CameraCapture': {
         'criticality': 0,
@@ -21,6 +22,7 @@ runnables = {
         'period': 50,
         'execution_time': 4,
         'type': 'periodic',
+        'deps': []
     },
     'SensorFusion': {
         'criticality': 1,
@@ -124,7 +126,7 @@ def schedule_periodic_runnables():
 
 def is_deps_ready(current_runnable, check_time):
     """Check if all dependencies of a runnable have completed by the current time."""
-    deps = runnables[current_runnable].get('deps', [])
+    deps = runnables[current_runnable].get('deps')
     return all(last_output[dep] >= 0 and last_output[dep] <= check_time for dep in deps)
 
 
@@ -132,7 +134,7 @@ def schedule_event_runnables(triggered, check_time):
     """Schedule event-driven tasks that depend on the triggered tasks."""
     global LAST_EXECUTION_FINISH_TIME
     for name, props in runnables.items():
-        if props['type'] == 'event' and set(props.get('deps', [])) & set(triggered):
+        if props['type'] == 'event' and set(props.get('deps')) & set(triggered):
             if is_deps_ready(name, check_time) and check_time >= LAST_EXECUTION_FINISH_TIME:
                 heapq.heappush(event_queue, (check_time, name))
                 LAST_EXECUTION_FINISH_TIME += props['execution_time']
