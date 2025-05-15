@@ -3,7 +3,7 @@
 import heapq
 from collections import defaultdict
 
-SIMULATION_TIME_MS = 200
+SIMULATION_TIME_MS = 400
 
 runnables = {
     'RadarCapture': {
@@ -121,7 +121,7 @@ def schedule_periodic_runnables():
             time = 0
             counter = 0
             while time <= SIMULATION_TIME_MS:
-                heapq.heappush(event_queue, (time, 0, name,
+                heapq.heappush(event_queue, (time,  name,
                                props['execution_time'], counter))
                 time += props['period']
                 counter += 1
@@ -148,14 +148,14 @@ def schedule_event_runnables(triggered, current_time, instance_map):
                 if is_dependencies_ready(name, current_instance):
                     total_delay = sum(exec_time for sched_time, _, _, exec_time, _ in event_queue
                                       if sched_time < current_time)
-                    heapq.heappush(event_queue, (current_time + total_delay, 1, name,
+                    heapq.heappush(event_queue, (current_time + total_delay, name,
                                                  props['execution_time'], current_instance))
 
 
 schedule_periodic_runnables()
 
 while event_queue and CPU_FREE_TIME < SIMULATION_TIME_MS:
-    scheduled_time, priority, task, execution_time, instance = heapq.heappop(
+    scheduled_time,  task, execution_time, instance = heapq.heappop(
         event_queue)
 
     actual_start_time = max(CPU_FREE_TIME, scheduled_time)
