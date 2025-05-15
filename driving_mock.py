@@ -3,7 +3,7 @@
 import heapq
 from collections import defaultdict
 
-SIMULATION_TIME_MS = 400
+SIMULATION_TIME_MS = 200
 
 runnables = {
     'RadarCapture': {
@@ -104,8 +104,11 @@ runnables = {
 event_queue = []
 heapq.heapify(event_queue)
 
-last_output = defaultdict(lambda: -1)
+last_output = defaultdict(lambda: (-1, -1))
 execution_log = []
+task_instance_counter = defaultdict(int)
+dependency_instance = defaultdict(lambda: defaultdict(int))
+completed_instances = defaultdict(int)
 
 CPU_FREE_TIME = 0
 
@@ -116,44 +119,55 @@ def schedule_periodic_runnables():
     for name, props in runnables.items():
         if props['type'] == 'periodic':
             time = 0
+            counter = 0
             while time <= SIMULATION_TIME_MS:
-                heapq.heappush(
-                    event_queue, (time, 0, name, props['execution_time']))
+                heapq.heappush(event_queue, (time, 0, name,
+                               props['execution_time'], counter))
                 time += props['period']
+                counter += 1
 
 
-def is_dependencies_ready(runnable, current_time):
+def is_dependencies_ready(runnable, current_instance):
     """Check if all dependencies of a runnable have completed by the current time."""
     deps = runnables[runnable].get('deps', [])
-    return all(last_output[dep] >= 0 and last_output[dep] <= current_time for dep in deps)
+    return all(completed_instances[dep] > current_instance for dep in deps)
 
 
-def schedule_event_runnables(triggered, current_time):
+def schedule_event_runnables(triggered, current_time, instance_map):
     """Schedule all event-based tasks that are triggered by the given events."""
     for name, props in runnables.items():
         if props['type'] == 'event' and set(props.get('deps', [])) & set(triggered):
-            if is_dependencies_ready(name, current_time):
-                total_delay = sum(exec_time for sched_time, _, _, exec_time in event_queue
-                                  if sched_time < current_time)
-                heapq.heappush(
-                    event_queue, (current_time + total_delay, 1, name, props['execution_time']))
+            for dep in props['deps']:
+                if dep in instance_map:
+                    dependency_instance[name][dep] = instance_map[dep]
+
+            dep_instances = [dependency_instance[name][dep]
+                             for dep in props['deps']]
+            if len(set(dep_instances)) == 1:
+                current_instance = dep_instances[0]
+                if is_dependencies_ready(name, current_instance):
+                    total_delay = sum(exec_time for sched_time, _, _, exec_time, _ in event_queue
+                                      if sched_time < current_time)
+                    heapq.heappush(event_queue, (current_time + total_delay, 1, name,
+                                                 props['execution_time'], current_instance))
 
 
 schedule_periodic_runnables()
 
 while event_queue and CPU_FREE_TIME < SIMULATION_TIME_MS:
-    scheduled_time, priority, task, _ = heapq.heappop(event_queue)
+    scheduled_time, priority, task, execution_time, instance = heapq.heappop(
+        event_queue)
 
     actual_start_time = max(CPU_FREE_TIME, scheduled_time)
-    execution_time = runnables[task]['execution_time']
     finish_time = actual_start_time + execution_time
     CPU_FREE_TIME = finish_time
 
-    last_output[task] = finish_time
-    execution_log.append((actual_start_time, finish_time, task))
+    last_output[task] = (finish_time, instance)
+    completed_instances[task] = instance + 1
+    execution_log.append((actual_start_time, finish_time, task, instance))
 
-    schedule_event_runnables([task], finish_time)
+    schedule_event_runnables([task], finish_time, {task: instance})
 
 print('Execution Log (start → end ms):')
-for start, end, task in execution_log:
+for start, end, task, _ in execution_log:
     print(f'[{start:4} → {end:4}] ms : {task}')
