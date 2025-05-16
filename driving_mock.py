@@ -166,10 +166,11 @@ while event_queue and CPU_FREE_TIME < SIMULATION_TIME_MS:
 
     last_output[task] = (finish_time, instance)
     completed_instances[task] = instance + 1
-    execution_log.append((actual_start_time, finish_time, task, instance))
+    execution_log.append((actual_start_time, finish_time,
+                          task, instance, runnables[task]['affinity']))
 
     schedule_event_runnables([task], finish_time, {task: instance})
 
 print('Execution Log (start → end ms):')
-for start, end, task, _ in execution_log.get_log():
-    print(f'[{start:4} → {end:4}] ms : {task}')
+for start, end, task, instance, _ in execution_log.get_log():
+    print(f'[{start:4} → {end:4}] ms : {task} (Instance {instance})')
