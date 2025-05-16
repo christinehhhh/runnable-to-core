@@ -146,7 +146,7 @@ def schedule_event_runnables(triggered, current_time, instance_map):
             if len(set(dep_instances)) == 1:
                 current_instance = dep_instances[0]
                 if is_dependencies_ready(name, current_instance):
-                    total_delay = sum(exec_time for sched_time, _, _, exec_time, _ in event_queue
+                    total_delay = sum(exec_time for sched_time, _, exec_time, _ in event_queue
                                       if sched_time < current_time)
                     heapq.heappush(event_queue, (current_time + total_delay, name,
                                                  props['execution_time'], current_instance))
