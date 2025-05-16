@@ -3,6 +3,8 @@
 import heapq
 from collections import defaultdict
 
+from shared_log import SharedExecutionLog
+
 SIMULATION_TIME_MS = 400
 
 runnables = {
@@ -105,7 +107,7 @@ event_queue = []
 heapq.heapify(event_queue)
 
 last_output = defaultdict(lambda: (-1, -1))
-execution_log = []
+execution_log = SharedExecutionLog()
 task_instance_counter = defaultdict(int)
 dependency_instance = defaultdict(lambda: defaultdict(int))
 completed_instances = defaultdict(int)
@@ -169,5 +171,5 @@ while event_queue and CPU_FREE_TIME < SIMULATION_TIME_MS:
     schedule_event_runnables([task], finish_time, {task: instance})
 
 print('Execution Log (start → end ms):')
-for start, end, task, _ in execution_log:
+for start, end, task, _ in execution_log.get_log():
     print(f'[{start:4} → {end:4}] ms : {task}')
