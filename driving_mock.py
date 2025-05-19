@@ -111,6 +111,7 @@ execution_log = SharedExecutionLog()
 task_instance_counter = defaultdict(int)
 dependency_instance = defaultdict(lambda: defaultdict(int))
 completed_instances = defaultdict(int)
+event_task_instance_counter = defaultdict(int)
 
 CPU_FREE_TIME = 0
 
@@ -138,20 +139,31 @@ def is_dependencies_ready(runnable, current_instance):
 def schedule_event_runnables(triggered, current_time, instance_map):
     """Schedule all event-based tasks that are triggered by the given events."""
     for name, props in runnables.items():
-        if props['type'] == 'event' and set(props.get('deps', [])) & set(triggered):
-            for dep in props['deps']:
-                if dep in instance_map:
-                    dependency_instance[name][dep] = instance_map[dep]
+        if props['type'] != 'event':
+            continue
 
-            dep_instances = [dependency_instance[name][dep]
-                             for dep in props['deps']]
-            if len(set(dep_instances)) == 1:
-                current_instance = dep_instances[0]
-                if is_dependencies_ready(name, current_instance):
-                    total_delay = sum(exec_time for sched_time, _, exec_time, _ in event_queue
-                                      if sched_time < current_time)
-                    heapq.heappush(event_queue, (current_time + total_delay, name,
-                                                 props['execution_time'], current_instance))
+        if not set(props.get('deps', [])) & set(triggered):
+            continue
+
+        available_instances = [completed_instances[dep] for dep in props['deps']
+                               ]
+
+        min_completed = min(available_instances)
+
+        current_count = event_task_instance_counter[name]
+
+        if min_completed > current_count:
+            current_instance = current_count
+
+            total_delay = sum(exec_time for sched_time, _, exec_time, _ in event_queue
+                              if sched_time < current_time)
+            heapq.heappush(event_queue, (current_time + total_delay, name,
+                                         props['execution_time'], current_instance))
+
+            event_task_instance_counter[name] += 1
+
+            for dep in props['deps']:
+                dependency_instance[name][dep] = completed_instances[dep] - 1
 
 
 schedule_periodic_runnables()
