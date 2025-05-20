@@ -7,7 +7,7 @@ from driving_mock import execution_log
 
 filtered_log = [
     (start, end, task, instance)
-    for start, end, task, instance in execution_log
+    for start, end, task, instance, _ in execution_log.get_log()
     if end <= 150
 ]
 
