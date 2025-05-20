@@ -28,8 +28,10 @@ for start, end, name, instance, affinity in extracted_log:
             start < last_periodic_time[name] + props['period'] and
                 last_periodic_time[name] > 0):
             continue
-        last_periodic_time[name] = start
-        actual_start = max(CORE0_TIME if affinity == 0 else CORE1_TIME, start)
+        if CORE0_TIME < start:
+            last_periodic_time[name] = instance * props['period']
+        actual_start = max(CORE0_TIME if affinity == 0 else CORE1_TIME,
+                           instance * props['period'])
     else:
         deps = props.get('deps', [])
         if deps:
