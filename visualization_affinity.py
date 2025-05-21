@@ -3,16 +3,16 @@
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 
-from tryout import execution_log_core0, execution_log_core1
+from affinity import execution_log_core
 
 core0_filtered = [
     (start, end, task, instance, "Core 0")
-    for start, end, task, instance in execution_log_core0
+    for start, end, task, instance in execution_log_core[0]
     if end <= 150
 ]
 core1_filtered = [
     (start, end, task, instance, "Core 1")
-    for start, end, task, instance in execution_log_core1
+    for start, end, task, instance in execution_log_core[1]
     if end <= 150
 ]
 
