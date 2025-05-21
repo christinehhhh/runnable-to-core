@@ -136,7 +136,7 @@ def is_dependencies_ready(runnable, current_instance):
     return all(completed_instances[dep] > current_instance for dep in deps)
 
 
-def schedule_event_runnables(triggered, current_time, instance_map):
+def schedule_event_runnables(triggered, current_time):
     """Schedule all event-based tasks that are triggered by the given events."""
     for name, props in runnables.items():
         if props['type'] != 'event':
@@ -181,7 +181,7 @@ while event_queue and CPU_FREE_TIME < SIMULATION_TIME_MS:
     execution_log.append((actual_start_time, finish_time,
                           task, instance, runnables[task]['affinity']))
 
-    schedule_event_runnables([task], finish_time, {task: instance})
+    schedule_event_runnables([task], finish_time)
 
 print('Execution Log (start → end ms):')
 for start, end, task, instance, _ in execution_log.get_log():
