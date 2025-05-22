@@ -29,6 +29,13 @@ def schedule_periodic_runnables():
                 counter += 1
 
 
+def are_tasks_independent(task1, task2):
+    """Check if two tasks are independent by verifying they don't share dependencies."""
+    deps1 = set(runnables[task1].get("deps", []))
+    deps2 = set(runnables[task2].get("deps", []))
+    return not (deps1 & {task2} or deps2 & {task1} or deps1 & deps2)
+
+
 def schedule_event_runnables(triggered_tasks, current_time):
     """Schedule event-based tasks that are triggered by completed dependencies."""
     for name, props in runnables.items():
@@ -41,8 +48,24 @@ def schedule_event_runnables(triggered_tasks, current_time):
         if all(completed_instances[dep] > event_task_instance_counter[name]
                for dep in props["deps"]):
             current_instance = event_task_instance_counter[name]
-            heapq.heappush(event_queue, (current_time, -props["criticality"],
-                                         name, props["execution_time"], current_instance))
+            new_task_tuple = (
+                current_time, -props["criticality"], name,
+                props["execution_time"], current_instance)
+
+            for idx, (sched_time, neg_crit, task_name, exec_time, inst) in enumerate(event_queue):
+                if (sched_time < current_time and
+                    -neg_crit < props["criticality"] and
+                        are_tasks_independent(name, task_name)):
+                    event_queue.pop(idx)
+                    heapq.heappush(
+                        event_queue, (sched_time, -props["criticality"], name,
+                                      props["execution_time"], current_instance))
+                    heapq.heappush(event_queue, (current_time,
+                                   neg_crit, task_name, exec_time, inst))
+                    break
+            else:
+                heapq.heappush(event_queue, new_task_tuple)
+
             event_task_instance_counter[name] += 1
 
 
