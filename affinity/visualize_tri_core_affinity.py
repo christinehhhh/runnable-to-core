@@ -3,7 +3,7 @@
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 
-from tri_core_affinity import execution_log_core
+from affinity.tri_core_affinity import execution_log_core
 
 # Filter only first 150ms
 filtered_logs = []
