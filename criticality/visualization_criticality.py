@@ -3,7 +3,7 @@
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 
-from criticality import execution_log_core
+from criticality.criticality import execution_log_core
 
 core0_filtered = [
     (start, end, task, instance, "Core 0")

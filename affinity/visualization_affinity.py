@@ -1,42 +1,43 @@
-"""Gantt chart for a 3-core system: Core 0, Core 1a, Core 1b"""
+"""Dual-core Gantt chart visualization of the first 150ms of execution log."""
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 
-from tri_core_affinity import execution_log_core
+from affinity.affinity import execution_log_core
 
-# Filter only first 150ms
-filtered_logs = []
-for label, entries in execution_log_core.items():
-    for start, end, task, instance in entries:
-        if end <= 150:
-            filtered_logs.append((start, end, task, instance, f"Core {label}"))
+core0_filtered = [
+    (start, end, task, instance, "Core 0")
+    for start, end, task, instance in execution_log_core[0]
+    if end <= 150
+]
+core1_filtered = [
+    (start, end, task, instance, "Core 1")
+    for start, end, task, instance in execution_log_core[1]
+    if end <= 150
+]
 
-# Unique task list for coloring
-unique_tasks = sorted(set(task for _, _, task, _, _ in filtered_logs))
+combined_log = core0_filtered + core1_filtered
+
+unique_tasks = sorted(set(task for _, _, task, _, _ in combined_log))
 color_palette = plt.cm.get_cmap("tab20", len(unique_tasks))
 task_colors = {task: color_palette(i) for i, task in enumerate(unique_tasks)}
 
-# Gantt plot
 fig, ax = plt.subplots(figsize=(14, 6))
 
-# Y-axis mapping
-y_positions = {"Core 0": 2, "Core 1a": 1, "Core 1b": 0}
+y_positions = {"Core 0": 1, "Core 1": 0}
 
-# Draw bars
-for start, end, task, instance, core in filtered_logs:
+for start, end, task, instance, core in combined_log:
     ax.barh(y_positions[core], end - start, left=start,
             color=task_colors[task], edgecolor="black")
     ax.text(start + (end - start) / 2, y_positions[core], f"{task} ({instance})",
             ha='center', va='center', fontsize=7, color='white', clip_on=True)
 
-ax.set_yticks([0, 1, 2])
-ax.set_yticklabels(["Core 1b", "Core 1a", "Core 0"])
+ax.set_yticks([0, 1])
+ax.set_yticklabels(["Core 1", "Core 0"])
 ax.set_xlabel("Time (ms)")
 ax.set_title("Gantt Chart of Runnable Execution Schedule (First 150ms)")
 ax.grid(True, axis='x', linestyle='--', alpha=0.5)
 
-# Legend
 handles = [mpatches.Patch(color=color, label=task)
            for task, color in task_colors.items()]
 ax.legend(handles=handles, bbox_to_anchor=(

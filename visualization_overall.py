@@ -4,11 +4,11 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 
-from affinity import execution_log_core as affinity_log
-from criticality import execution_log_core as criticality_log
+from affinity.affinity import execution_log_core as affinity_log
+from criticality.criticality import execution_log_core as criticality_log
 from driving_mock import execution_log as driving_mock_log
-from tri_core_affinity import execution_log_core as tri_core_affinity_log
-from tri_core_criticality import execution_log_core as tri_core_criticality_log
+from affinity.tri_core_affinity import execution_log_core as tri_core_affinity_log
+from criticality.tri_core_criticality import execution_log_core as tri_core_criticality_log
 
 
 def get_finish_time(log):
