@@ -33,7 +33,7 @@ def schedule_periodic_runnables():
             time = 0
             counter = 0
             while time < SIMULATION_TIME_MS:
-                heapq.heappush(event_queue, (time, name,
+                heapq.heappush(event_queue, (time, -props["criticality"], name,
                                props["execution_time"], counter))
                 time += props["period"]
                 counter += 1
@@ -51,7 +51,7 @@ def schedule_event_runnables(triggered_tasks, current_time):
         if all(completed_instances[dep] > event_task_instance_counter[name]
                for dep in props["deps"]):
             current_instance = event_task_instance_counter[name]
-            heapq.heappush(event_queue, (current_time,
+            heapq.heappush(event_queue, (current_time, -props["criticality"],
                                          name, props["execution_time"], current_instance))
             event_task_instance_counter[name] += 1
 
@@ -83,7 +83,8 @@ def assign_core_and_run(planned_time, runnable, runnable_execution_time, current
 schedule_periodic_runnables()
 
 while event_queue:
-    scheduled_time, task, execution_time, instance = heapq.heappop(event_queue)
+    scheduled_time, neg_crit, task, execution_time, instance = heapq.heappop(
+        event_queue)
     finish_time = assign_core_and_run(
         scheduled_time, task, execution_time, instance)
     schedule_event_runnables([task], finish_time)
