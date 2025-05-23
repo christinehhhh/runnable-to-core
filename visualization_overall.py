@@ -24,20 +24,23 @@ def get_finish_time(log):
     return None
 
 
-def filter_log_until(log, end_time):
-    """Filter log to include only entries ending before or at end_time."""
+def filter_log_until(log, end_time, force_single_core=False):
+    """Filter log to include only entries ending before or at end_time.
+       If force_single_core is True, all entries are assigned to Core 0."""
     filtered = []
     if isinstance(log, dict):
         for core, core_log in log.items():
             for start, end, task, instance in core_log:
                 if end > end_time:
                     continue
-                filtered.append((start, end, task, instance, core))
+                filtered.append((start, end, task, instance,
+                                0 if force_single_core else core))
     else:
         for start, end, task, instance, core in log.get_log():
             if end > end_time:
                 continue
-            filtered.append((start, end, task, instance, core))
+            filtered.append((start, end, task, instance,
+                            0 if force_single_core else core))
     return filtered
 
 
@@ -78,7 +81,8 @@ execution_times = []
 for method, log, n_cores in methods:
     finish_time = get_finish_time(log)
     execution_times.append((method, finish_time))
-    log_data = filter_log_until(log, finish_time)
+    log_data = filter_log_until(
+        log, finish_time, force_single_core=method == "Driving Mock")
     plt.figure(figsize=(14, 6))
     ax = plt.gca()
     plot_schedule(
