@@ -56,7 +56,8 @@ def schedule_event_runnables(triggered_tasks, current_time):
             for idx, (sched_time, neg_crit, task_name, exec_time, inst) in enumerate(event_queue):
                 if (sched_time < current_time and
                     -neg_crit < props["criticality"] and
-                        are_tasks_independent(name, task_name)):
+                    are_tasks_independent(name, task_name) and
+                        runnables[name]["affinity"] == runnables[task_name]["affinity"]):
                     event_queue.pop(idx)
                     heapq.heappush(event_queue, new_task_tuple)
                     heapq.heappush(event_queue, (current_time,
