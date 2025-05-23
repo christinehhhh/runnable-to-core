@@ -52,18 +52,19 @@ def schedule_event_runnables(triggered_tasks, current_time):
                 current_time, -props["criticality"], name,
                 props["execution_time"], current_instance)
 
+            inserted = False
             for idx, (sched_time, neg_crit, task_name, exec_time, inst) in enumerate(event_queue):
                 if (sched_time < current_time and
                     -neg_crit < props["criticality"] and
                         are_tasks_independent(name, task_name)):
                     event_queue.pop(idx)
-                    heapq.heappush(
-                        event_queue, (sched_time, -props["criticality"], name,
-                                      props["execution_time"], current_instance))
+                    heapq.heappush(event_queue, new_task_tuple)
                     heapq.heappush(event_queue, (current_time,
                                    neg_crit, task_name, exec_time, inst))
+                    inserted = True
                     break
-            else:
+
+            if not inserted:
                 heapq.heappush(event_queue, new_task_tuple)
 
             event_task_instance_counter[name] += 1
