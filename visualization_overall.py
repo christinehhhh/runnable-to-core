@@ -1,0 +1,101 @@
+"""Visualization of core behavior for different scheduling methods."""
+
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+import numpy as np
+
+from affinity import execution_log_core as affinity_log
+from criticality import execution_log_core as criticality_log
+from driving_mock import execution_log as driving_mock_log
+from tri_core_affinity import execution_log_core as tri_core_affinity_log
+from tri_core_criticality import execution_log_core as tri_core_criticality_log
+
+
+def get_finish_time(log):
+    """Return the finish time of SteeringActuatorControl instance 2."""
+    if isinstance(log, dict):
+        entries = [entry + (core,) for core, core_log in log.items()
+                   for entry in core_log]
+    else:
+        entries = [entry for entry in log.get_log()]
+    for start, end, task, instance, *rest in sorted(entries, key=lambda x: (x[2], x[3], x[0])):
+        if task == "SteeringActuatorControl" and instance == 2:
+            return end
+    return None
+
+
+def filter_log_until(log, end_time):
+    """Filter log to include only entries ending before or at end_time."""
+    filtered = []
+    if isinstance(log, dict):
+        for core, core_log in log.items():
+            for start, end, task, instance in core_log:
+                if end > end_time:
+                    continue
+                filtered.append((start, end, task, instance, core))
+    else:
+        for start, end, task, instance, core in log.get_log():
+            if end > end_time:
+                continue
+            filtered.append((start, end, task, instance, core))
+    return filtered
+
+
+def plot_schedule(log_data, title, ax):
+    tasks = sorted(set(task for _, _, task, _, _ in log_data))
+    color_palette = plt.cm.get_cmap("tab20", len(tasks))
+    task_colors = {task: color_palette(i) for i, task in enumerate(tasks)}
+    cores = list(sorted(set(core for _, _, _, _, core in log_data), key=str))
+    y_positions = {core: i for i, core in enumerate(cores)}
+    for start, end, task, instance, core in log_data:
+        ax.barh(y_positions[core], end - start, left=start,
+                color=task_colors[task], edgecolor="black")
+        ax.text(start + (end - start) / 2, y_positions[core],
+                f"{task} ({instance})", ha='center', va='center',
+                fontsize=7, color='white', clip_on=True)
+    ax.set_yticks(range(len(cores)))
+    ax.set_yticklabels([f"Core {core}" for core in cores])
+    ax.set_xlabel("Time (ms)")
+    ax.set_title(title)
+    ax.grid(True, axis='x', linestyle='--', alpha=0.5)
+    handles = [mpatches.Patch(color=color, label=task)
+               for task, color in task_colors.items()]
+    ax.legend(handles=handles, bbox_to_anchor=(1.05, 1),
+              loc='upper left', title="Tasks")
+
+
+# Prepare logs and core counts for each method
+methods = [
+    ("Driving Mock", driving_mock_log, 1),
+    ("Affinity", affinity_log, 2),
+    ("Criticality", criticality_log, 2),
+    ("Tri-Core Affinity", tri_core_affinity_log, 3),
+    ("Tri-Core Criticality", tri_core_criticality_log, 3)
+]
+
+execution_times = []
+
+for method, log, n_cores in methods:
+    finish_time = get_finish_time(log)
+    execution_times.append((method, finish_time))
+    log_data = filter_log_until(log, finish_time)
+    plt.figure(figsize=(14, 6))
+    ax = plt.gca()
+    plot_schedule(
+        log_data,
+        f"Gantt Chart of Runnable Execution Schedule - {method} (Execution Time: {finish_time} ms)",
+        ax
+    )
+    plt.tight_layout()
+    plt.show()
+
+# Plot execution time comparison
+plt.figure(figsize=(10, 5))
+methods_names = [m for m, _ in execution_times]
+finish_times = [t for _, t in execution_times]
+plt.bar(methods_names, finish_times, color='skyblue', edgecolor='black')
+plt.ylabel('Execution Time (ms)')
+plt.title('Execution Time Comparison (Finish of SteeringActuatorControl instance 2)')
+plt.grid(axis='y', linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
