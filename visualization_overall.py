@@ -53,9 +53,6 @@ def plot_schedule(log_data, title, ax):
     for start, end, task, instance, core in log_data:
         ax.barh(y_positions[core], end - start, left=start,
                 color=task_colors[task], edgecolor="black")
-        ax.text(start + (end - start) / 2, y_positions[core],
-                f"{task} ({instance})", ha='center', va='center',
-                fontsize=7, color='white', clip_on=True)
     ax.set_yticks(range(len(cores)))
     ax.set_yticklabels([f"Core {core}" for core in cores])
     ax.set_xlabel("Time (ms)")
@@ -64,7 +61,7 @@ def plot_schedule(log_data, title, ax):
     handles = [mpatches.Patch(color=color, label=task)
                for task, color in task_colors.items()]
     ax.legend(handles=handles, bbox_to_anchor=(1.05, 1),
-              loc='upper left', title="Tasks")
+              loc='upper left', title="Runnables")
 
 
 # Prepare logs and core counts for each method
