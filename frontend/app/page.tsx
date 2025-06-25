@@ -1,103 +1,263 @@
-import Image from "next/image";
+'use client'
+import { Cross2Icon } from '@radix-ui/react-icons'
+import {
+  Box,
+  Button,
+  Flex,
+  Heading,
+  IconButton,
+  Select,
+  Text,
+  TextField,
+} from '@radix-ui/themes'
+import { useState } from 'react'
+
+type Runnable = {
+  criticality: number
+  affinity: number
+  period?: number
+  execution_time: number
+  type: 'periodic' | 'event'
+  deps: string[]
+}
+
+type RunnableConfig = Record<string, Runnable>
+
+const defaultRunnables: RunnableConfig = {
+  RadarCapture: {
+    criticality: 1,
+    affinity: 0,
+    period: 75,
+    execution_time: 2,
+    type: 'periodic',
+    deps: [],
+  },
+  CameraCapture: {
+    criticality: 0,
+    affinity: 0,
+    period: 50,
+    execution_time: 7,
+    type: 'periodic',
+    deps: [],
+  },
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [numCores, setNumCores] = useState(1)
+  const [runnables, setRunnables] = useState<RunnableConfig>(defaultRunnables)
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+  const handleAddRunnable = () => {
+    const newName = `Runnable${Object.keys(runnables).length + 1}`
+    setRunnables({
+      ...runnables,
+      [newName]: {
+        criticality: 0,
+        affinity: 0,
+        period: 100,
+        execution_time: 5,
+        type: 'periodic',
+        deps: [],
+      },
+    })
+  }
+
+  const handleRemoveRunnable = (name: string) => {
+    const newRunnables = { ...runnables }
+    delete newRunnables[name]
+    setRunnables(newRunnables)
+  }
+
+  const handleRunnableChange = (
+    name: string,
+    field: keyof Runnable,
+    value: number | string | string[] | 'periodic' | 'event'
+  ) => {
+    setRunnables((prev) => ({
+      ...prev,
+      [name]: {
+        ...prev[name],
+        [field]: value,
+      },
+    }))
+  }
+
+  const handleNameChange = (oldName: string, newName: string) => {
+    if (!newName || oldName === newName) return
+    setRunnables((prev) => {
+      const updated = { ...prev }
+      updated[newName] = updated[oldName]
+      delete updated[oldName]
+      return updated
+    })
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto py-10 px-4">
+      <Heading className="text-2xl font-bold mb-6 text-center">
+        Scheduling Simulator Config
+      </Heading>
+      <Box mb="5">
+        <Text as="label" size="3" className="block mb-2 font-medium">
+          Number of Cores
+        </Text>
+        <TextField.Root
+          type="number"
+          min={1}
+          max={16}
+          value={numCores}
+          onChange={(e) => setNumCores(Number(e.target.value) || 1)}
+          className="w-32"
+        />
+      </Box>
+      <Box mb="5">
+        <Flex justify="between" align="center" mb="2">
+          <Text as="label" size="3" className="font-medium">
+            Runnables
+          </Text>
+          <Button variant="soft" onClick={handleAddRunnable}>
+            Add Runnable
+          </Button>
+        </Flex>
+        <Flex direction="column" gap="4">
+          {Object.entries(runnables).map(([name, runnable]) => (
+            <Box
+              key={name}
+              className="border rounded-lg p-4 bg-gray-50 relative"
+            >
+              <IconButton
+                variant="ghost"
+                color="red"
+                className="absolute top-2 right-2"
+                onClick={() => handleRemoveRunnable(name)}
+                aria-label="Remove Runnable"
+              >
+                <Cross2Icon />
+              </IconButton>
+              <Flex gap="2" align="center" mb="2">
+                <TextField.Root
+                  value={name}
+                  onChange={(e) => handleNameChange(name, e.target.value)}
+                  className="font-semibold w-48"
+                />
+              </Flex>
+              <Flex gap="3" wrap="wrap">
+                <Box>
+                  <Text size="2">Criticality</Text>
+                  <TextField.Root
+                    type="number"
+                    min={0}
+                    max={3}
+                    value={runnable.criticality}
+                    onChange={(e) =>
+                      handleRunnableChange(
+                        name,
+                        'criticality',
+                        Number(e.target.value) || 0
+                      )
+                    }
+                    className="w-20"
+                  />
+                </Box>
+                <Box>
+                  <Text size="2">Affinity</Text>
+                  <TextField.Root
+                    type="number"
+                    min={0}
+                    max={numCores - 1}
+                    value={runnable.affinity}
+                    onChange={(e) =>
+                      handleRunnableChange(
+                        name,
+                        'affinity',
+                        Number(e.target.value) || 0
+                      )
+                    }
+                    className="w-20"
+                  />
+                </Box>
+                <InputBox
+                  title="Execution Time (ms)"
+                  type="number"
+                  value={runnable.execution_time}
+                  onChange={(e) =>
+                    handleRunnableChange(
+                      name,
+                      'execution_time',
+                      Number(e.target.value) || 1
+                    )
+                  }
+                />
+                <Box>
+                  <Text size="2">Type</Text>
+                  <Select.Root
+                    value={runnable.type}
+                    onValueChange={(value) =>
+                      handleRunnableChange(
+                        name,
+                        'type',
+                        value as 'periodic' | 'event'
+                      )
+                    }
+                  >
+                    <Select.Trigger className="w-28" />
+                    <Select.Content>
+                      <Select.Item value="periodic">Periodic</Select.Item>
+                      <Select.Item value="event">Event</Select.Item>
+                    </Select.Content>
+                  </Select.Root>
+                </Box>
+                {runnable.type === 'periodic' && (
+                  <InputBox
+                    title="Period (ms)"
+                    type="number"
+                    value={runnable.period || 100}
+                    onChange={(e) =>
+                      handleRunnableChange(
+                        name,
+                        'period',
+                        Number(e.target.value) || 100
+                      )
+                    }
+                  />
+                )}
+                <Box className="flex-1 min-w-[180px]">
+                  <Text size="2">Dependencies (comma separated)</Text>
+                  <TextField.Root
+                    value={runnable.deps.join(', ')}
+                    onChange={(e) =>
+                      handleRunnableChange(
+                        name,
+                        'deps',
+                        e.target.value
+                          .split(',')
+                          .map((d) => d.trim())
+                          .filter((d) => d)
+                      )
+                    }
+                    placeholder="e.g. RadarCapture, CameraCapture"
+                  />
+                </Box>
+              </Flex>
+            </Box>
+          ))}
+        </Flex>
+      </Box>
     </div>
-  );
+  )
+}
+
+interface InputBoxProps {
+  title: string
+  type: 'text' | 'number'
+  value: string | number
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+}
+
+const InputBox = ({ title, type, value, onChange }: InputBoxProps) => {
+  return (
+    <Box>
+      <Text size="2">{title}</Text>
+      <TextField.Root type={type} value={value} onChange={onChange} />
+    </Box>
+  )
 }
