@@ -304,129 +304,135 @@ export default function Home() {
               </Button>
             </Flex>
             <Flex direction="column" gap="4">
-              {Object.entries(runnables).map(([name, runnable]) => {
-                return (
-                  <Box
-                    key={name}
-                    className="border rounded-lg p-4 bg-gray-50 relative"
-                  >
-                    <IconButton
-                      variant="ghost"
-                      color="red"
-                      className="absolute top-2 right-2"
-                      onClick={() => handleRemoveRunnable(name)}
-                      aria-label="Remove Runnable"
+              {Object.entries(runnables)
+                .reverse()
+                .map(([name, runnable]) => {
+                  return (
+                    <Box
+                      key={name}
+                      className="border rounded-lg p-4 bg-gray-50 relative"
                     >
-                      <Cross2Icon />
-                    </IconButton>
-                    <Flex gap="2" align="center" mb="2">
-                      <EditableRunnableName
-                        name={name}
-                        onRename={(newName) => handleNameChange(name, newName)}
-                      />
-                    </Flex>
-                    <Flex gap="3" wrap="wrap">
-                      <Box>
-                        <Text size="2">Criticality</Text>
-                        <TextField.Root
-                          type="number"
-                          defaultValue={runnable.criticality}
-                          onChange={(e) =>
-                            handleRunnableChange(
-                              name,
-                              'criticality',
-                              Number(e.target.value) || 0
-                            )
+                      <IconButton
+                        variant="ghost"
+                        color="red"
+                        className="absolute top-2 right-2"
+                        onClick={() => handleRemoveRunnable(name)}
+                        aria-label="Remove Runnable"
+                      >
+                        <Cross2Icon />
+                      </IconButton>
+                      <Flex gap="2" align="center" mb="2">
+                        <EditableRunnableName
+                          name={name}
+                          onRename={(newName) =>
+                            handleNameChange(name, newName)
                           }
-                          className="w-20"
                         />
-                      </Box>
-                      <Box>
-                        <Text size="2">Affinity</Text>
-                        <TextField.Root
-                          type="number"
-                          min={0}
-                          max={numCores - 1}
-                          value={runnable.affinity}
-                          onChange={(e) =>
-                            handleRunnableChange(
-                              name,
-                              'affinity',
-                              Number(e.target.value) || 0
-                            )
-                          }
-                          className="w-20"
-                        />
-                      </Box>
-                      <Box>
-                        <Text size="2">Execution Time (ms)</Text>
-                        <TextField.Root
-                          type="number"
-                          min={1}
-                          value={runnable.execution_time}
-                          onChange={(e) =>
-                            handleRunnableChange(
-                              name,
-                              'execution_time',
-                              Number(e.target.value) || 1
-                            )
-                          }
-                          className="w-24"
-                        />
-                      </Box>
-                      <Box>
-                        <Text size="2">Type</Text>
-                        <Select.Root
-                          value={runnable.type}
-                          onValueChange={(value) =>
-                            handleRunnableChange(
-                              name,
-                              'type',
-                              value as 'periodic' | 'event'
-                            )
-                          }
-                        >
-                          <Select.Trigger className="w-28" />
-                          <Select.Content>
-                            <Select.Item value="periodic">Periodic</Select.Item>
-                            <Select.Item value="event">Event</Select.Item>
-                          </Select.Content>
-                        </Select.Root>
-                      </Box>
-                      {runnable.type === 'periodic' && (
+                      </Flex>
+                      <Flex gap="3" wrap="wrap">
                         <Box>
-                          <Text size="2">Period (ms)</Text>
+                          <Text size="2">Criticality</Text>
                           <TextField.Root
                             type="number"
-                            min={1}
-                            value={runnable.period || 100}
+                            defaultValue={runnable.criticality}
                             onChange={(e) =>
                               handleRunnableChange(
                                 name,
-                                'period',
-                                Number(e.target.value) || 100
+                                'criticality',
+                                Number(e.target.value) || 0
+                              )
+                            }
+                            className="w-20"
+                          />
+                        </Box>
+                        <Box>
+                          <Text size="2">Affinity</Text>
+                          <TextField.Root
+                            type="number"
+                            min={0}
+                            max={numCores - 1}
+                            value={runnable.affinity}
+                            onChange={(e) =>
+                              handleRunnableChange(
+                                name,
+                                'affinity',
+                                Number(e.target.value) || 0
+                              )
+                            }
+                            className="w-20"
+                          />
+                        </Box>
+                        <Box>
+                          <Text size="2">Execution Time (ms)</Text>
+                          <TextField.Root
+                            type="number"
+                            min={1}
+                            value={runnable.execution_time}
+                            onChange={(e) =>
+                              handleRunnableChange(
+                                name,
+                                'execution_time',
+                                Number(e.target.value) || 1
                               )
                             }
                             className="w-24"
                           />
                         </Box>
-                      )}
-                      <Box className="flex-1 min-w-[180px]">
-                        <Text size="2">Dependencies</Text>
-                        <DependencySelector
-                          allRunnables={Object.keys(runnables).filter(
-                            (n) => n !== name
-                          )}
-                          selected={runnable.deps}
-                          onChange={(deps) =>
-                            handleRunnableChange(name, 'deps', deps)
-                          }
-                        />
-                      </Box>
-                    </Flex>
-                  </Box>
-                )
-              })}
+                        <Box>
+                          <Text size="2">Type</Text>
+                          <Select.Root
+                            value={runnable.type}
+                            onValueChange={(value) =>
+                              handleRunnableChange(
+                                name,
+                                'type',
+                                value as 'periodic' | 'event'
+                              )
+                            }
+                          >
+                            <Select.Trigger className="w-28" />
+                            <Select.Content>
+                              <Select.Item value="periodic">
+                                Periodic
+                              </Select.Item>
+                              <Select.Item value="event">Event</Select.Item>
+                            </Select.Content>
+                          </Select.Root>
+                        </Box>
+                        {runnable.type === 'periodic' && (
+                          <Box>
+                            <Text size="2">Period (ms)</Text>
+                            <TextField.Root
+                              type="number"
+                              min={1}
+                              value={runnable.period || 100}
+                              onChange={(e) =>
+                                handleRunnableChange(
+                                  name,
+                                  'period',
+                                  Number(e.target.value) || 100
+                                )
+                              }
+                              className="w-24"
+                            />
+                          </Box>
+                        )}
+                        <Box className="flex-1 min-w-[180px]">
+                          <Text size="2">Dependencies</Text>
+                          <DependencySelector
+                            allRunnables={Object.keys(runnables).filter(
+                              (n) => n !== name
+                            )}
+                            selected={runnable.deps}
+                            onChange={(deps) =>
+                              handleRunnableChange(name, 'deps', deps)
+                            }
+                          />
+                        </Box>
+                      </Flex>
+                    </Box>
+                  )
+                })}
             </Flex>
           </Box>
         </ScrollArea>
