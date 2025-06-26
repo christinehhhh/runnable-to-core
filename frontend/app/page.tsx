@@ -354,20 +354,25 @@ export default function Home() {
                         </Flex>
                         <Flex direction="column" gap="1">
                           <Text size="2">Affinity</Text>
-                          <TextField.Root
-                            type="number"
-                            min={0}
-                            max={numCores - 1}
-                            value={runnable.affinity}
-                            onChange={(e) =>
+                          <Select.Root
+                            value={runnable.affinity.toString()}
+                            onValueChange={(value) =>
                               handleRunnableChange(
                                 name,
                                 'affinity',
-                                Number(e.target.value) || 0
+                                Number(value)
                               )
                             }
-                            className="w-20"
-                          />
+                          >
+                            <Select.Trigger className="w-20" />
+                            <Select.Content>
+                              {Array.from({ length: numCores }, (_, i) => (
+                                <Select.Item key={i} value={i.toString()}>
+                                  Core {i}
+                                </Select.Item>
+                              ))}
+                            </Select.Content>
+                          </Select.Root>
                         </Flex>
                         <Flex direction="column" gap="1">
                           <Text size="2">Execution Time (ms)</Text>
