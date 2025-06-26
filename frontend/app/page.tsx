@@ -312,15 +312,16 @@ export default function Home() {
                       key={name}
                       className="border rounded-lg p-4 bg-gray-50 relative"
                     >
-                      <IconButton
-                        variant="ghost"
-                        color="red"
-                        className="absolute top-2 right-2"
-                        onClick={() => handleRemoveRunnable(name)}
-                        aria-label="Remove Runnable"
-                      >
-                        <Cross2Icon />
-                      </IconButton>
+                      <div className="absolute top-2 right-2 z-20">
+                        <IconButton
+                          variant="ghost"
+                          color="red"
+                          onClick={() => handleRemoveRunnable(name)}
+                          aria-label="Remove Runnable"
+                        >
+                          <Cross2Icon className="hover:cursor-pointer" />
+                        </IconButton>
+                      </div>
                       <Flex gap="2" align="center" mb="2">
                         <EditableRunnableName
                           name={name}
