@@ -332,18 +332,24 @@ export default function Home() {
                       <Flex gap="3" wrap="wrap">
                         <Box>
                           <Text size="2">Criticality</Text>
-                          <TextField.Root
-                            type="number"
-                            defaultValue={runnable.criticality}
-                            onChange={(e) =>
+                          <Select.Root
+                            value={runnable.criticality.toString()}
+                            onValueChange={(value) =>
                               handleRunnableChange(
                                 name,
                                 'criticality',
-                                Number(e.target.value) || 0
+                                Number(value)
                               )
                             }
-                            className="w-20"
-                          />
+                          >
+                            <Select.Trigger className="w-24" />
+                            <Select.Content>
+                              <Select.Item value="0">0 - ASIL A</Select.Item>
+                              <Select.Item value="1">1 - ASIL B</Select.Item>
+                              <Select.Item value="2">2 - ASIL C</Select.Item>
+                              <Select.Item value="3">3 - ASIL D</Select.Item>
+                            </Select.Content>
+                          </Select.Root>
                         </Box>
                         <Box>
                           <Text size="2">Affinity</Text>
