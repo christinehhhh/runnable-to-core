@@ -281,7 +281,7 @@ export default function Home() {
           <Heading className="text-2xl font-bold mb-6 text-center">
             Configuration
           </Heading>
-          <Box mb="5">
+          <Flex direction="column" gap="2" mb="5">
             <Text as="label" size="3" className="block mb-2 font-medium">
               Number of Cores
             </Text>
@@ -293,7 +293,7 @@ export default function Home() {
               onChange={(e) => setNumCores(Number(e.target.value) || 1)}
               className="w-32"
             />
-          </Box>
+          </Flex>
           <Box mb="5">
             <Flex justify="between" align="center" mb="2">
               <Text as="label" size="3" className="font-medium">
@@ -331,7 +331,7 @@ export default function Home() {
                         />
                       </Flex>
                       <Flex gap="3" wrap="wrap">
-                        <Box>
+                        <Flex direction="column" gap="1">
                           <Text size="2">Criticality</Text>
                           <Select.Root
                             value={runnable.criticality.toString()}
@@ -351,8 +351,8 @@ export default function Home() {
                               <Select.Item value="3">3 - ASIL D</Select.Item>
                             </Select.Content>
                           </Select.Root>
-                        </Box>
-                        <Box>
+                        </Flex>
+                        <Flex direction="column" gap="1">
                           <Text size="2">Affinity</Text>
                           <TextField.Root
                             type="number"
@@ -368,8 +368,8 @@ export default function Home() {
                             }
                             className="w-20"
                           />
-                        </Box>
-                        <Box>
+                        </Flex>
+                        <Flex direction="column" gap="1">
                           <Text size="2">Execution Time (ms)</Text>
                           <TextField.Root
                             type="number"
@@ -384,8 +384,8 @@ export default function Home() {
                             }
                             className="w-24"
                           />
-                        </Box>
-                        <Box>
+                        </Flex>
+                        <Flex direction="column" gap="1">
                           <Text size="2">Type</Text>
                           <Select.Root
                             value={runnable.type}
@@ -405,9 +405,9 @@ export default function Home() {
                               <Select.Item value="event">Event</Select.Item>
                             </Select.Content>
                           </Select.Root>
-                        </Box>
+                        </Flex>
                         {runnable.type === 'periodic' && (
-                          <Box>
+                          <Flex direction="column" gap="1">
                             <Text size="2">Period (ms)</Text>
                             <TextField.Root
                               type="number"
@@ -422,9 +422,9 @@ export default function Home() {
                               }
                               className="w-24"
                             />
-                          </Box>
+                          </Flex>
                         )}
-                        <Box className="flex-1 min-w-[180px]">
+                        <Flex direction="column" gap="1">
                           <Text size="2">Dependencies</Text>
                           <DependencySelector
                             allRunnables={Object.keys(runnables).filter(
@@ -435,7 +435,7 @@ export default function Home() {
                               handleRunnableChange(name, 'deps', deps)
                             }
                           />
-                        </Box>
+                        </Flex>
                       </Flex>
                     </Box>
                   )
