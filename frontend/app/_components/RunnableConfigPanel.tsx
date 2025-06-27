@@ -74,6 +74,23 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
     })
   }
 
+  const criticalityOptions = [
+    { value: '0', label: '0 - ASIL A' },
+    { value: '1', label: '1 - ASIL B' },
+    { value: '2', label: '2 - ASIL C' },
+    { value: '3', label: '3 - ASIL D' },
+  ]
+
+  const affinityOptions = Array.from({ length: numCores }, (_, i) => ({
+    value: i.toString(),
+    label: `Core ${i}`,
+  }))
+
+  const typeOptions = [
+    { value: 'periodic', label: 'Periodic' },
+    { value: 'event', label: 'Event' },
+  ]
+
   return (
     <div className="w-full md:w-[400px]">
       <ScrollArea scrollbars="vertical">
@@ -128,49 +145,22 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
                       />
                     </Flex>
                     <Flex gap="3" wrap="wrap">
-                      <Flex direction="column" gap="1">
-                        <Text size="2">Criticality</Text>
-                        <Select.Root
-                          value={runnable.criticality.toString()}
-                          onValueChange={(value) =>
-                            handleRunnableChange(
-                              name,
-                              'criticality',
-                              Number(value)
-                            )
-                          }
-                        >
-                          <Select.Trigger className="w-24" />
-                          <Select.Content>
-                            <Select.Item value="0">0 - ASIL A</Select.Item>
-                            <Select.Item value="1">1 - ASIL B</Select.Item>
-                            <Select.Item value="2">2 - ASIL C</Select.Item>
-                            <Select.Item value="3">3 - ASIL D</Select.Item>
-                          </Select.Content>
-                        </Select.Root>
-                      </Flex>
-                      <Flex direction="column" gap="1">
-                        <Text size="2">Affinity</Text>
-                        <Select.Root
-                          value={runnable.affinity.toString()}
-                          onValueChange={(value) =>
-                            handleRunnableChange(
-                              name,
-                              'affinity',
-                              Number(value)
-                            )
-                          }
-                        >
-                          <Select.Trigger className="w-20" />
-                          <Select.Content>
-                            {Array.from({ length: numCores }, (_, i) => (
-                              <Select.Item key={i} value={i.toString()}>
-                                Core {i}
-                              </Select.Item>
-                            ))}
-                          </Select.Content>
-                        </Select.Root>
-                      </Flex>
+                      <ConfigSelectField
+                        value={runnable.criticality}
+                        field="criticality"
+                        runnableName={name}
+                        handleRunnableChange={handleRunnableChange}
+                        options={criticalityOptions}
+                        name="Criticality"
+                      />
+                      <ConfigSelectField
+                        value={runnable.affinity}
+                        field="affinity"
+                        runnableName={name}
+                        handleRunnableChange={handleRunnableChange}
+                        options={affinityOptions}
+                        name="Affinity"
+                      />
                       <Flex direction="column" gap="1">
                         <Text size="2">Execution Time (ms)</Text>
                         <TextField.Root
@@ -187,25 +177,14 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
                           className="w-24"
                         />
                       </Flex>
-                      <Flex direction="column" gap="1">
-                        <Text size="2">Type</Text>
-                        <Select.Root
-                          value={runnable.type}
-                          onValueChange={(value) =>
-                            handleRunnableChange(
-                              name,
-                              'type',
-                              value as 'periodic' | 'event'
-                            )
-                          }
-                        >
-                          <Select.Trigger className="w-28" />
-                          <Select.Content>
-                            <Select.Item value="periodic">Periodic</Select.Item>
-                            <Select.Item value="event">Event</Select.Item>
-                          </Select.Content>
-                        </Select.Root>
-                      </Flex>
+                      <ConfigSelectField
+                        value={runnable.type}
+                        field="type"
+                        runnableName={name}
+                        handleRunnableChange={handleRunnableChange}
+                        options={typeOptions}
+                        name="Type"
+                      />
                       {runnable.type === 'periodic' && (
                         <Flex direction="column" gap="1">
                           <Text size="2">Period (ms)</Text>
@@ -359,5 +338,48 @@ const DependencySelector = ({
         </div>
       )}
     </div>
+  )
+}
+
+interface ConfigSelectFieldProps {
+  value: number | 'periodic' | 'event'
+  field: keyof Runnable
+  runnableName: string
+  handleRunnableChange: (
+    name: string,
+    field: keyof Runnable,
+    value: number
+  ) => void
+  options: { value: string; label: string }[]
+  name: string
+}
+
+const ConfigSelectField = ({
+  value,
+  field,
+  runnableName,
+  handleRunnableChange,
+  options,
+  name,
+}: ConfigSelectFieldProps) => {
+  return (
+    <Flex direction="column" gap="1">
+      <Text size="2">{name}</Text>
+      <Select.Root
+        value={value.toString()}
+        onValueChange={(value) =>
+          handleRunnableChange(runnableName, field, Number(value))
+        }
+      >
+        <Select.Trigger className="w-24" />
+        <Select.Content>
+          {options.map((option) => (
+            <Select.Item key={option.value} value={option.value}>
+              {option.label}
+            </Select.Item>
+          ))}
+        </Select.Content>
+      </Select.Root>
+    </Flex>
   )
 }
