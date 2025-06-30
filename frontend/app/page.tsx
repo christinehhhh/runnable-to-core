@@ -1,38 +1,44 @@
 'use client'
-import { RunnableConfig } from '@/types/runnable'
+import { Runnable } from '@/types/runnable'
 import { useMemo, useState } from 'react'
 import { Edge, MarkerType, Node } from 'reactflow'
 import 'reactflow/dist/style.css'
 import { RunnableConfigPanel, RunnablePlayground } from './_components'
 
-function computeNodeDepths(runnables: RunnableConfig) {
+function computeNodeDepths(runnables: Runnable[]) {
   const depths: Record<string, number> = {}
   const getDepth = (name: string): number => {
     if (depths[name] !== undefined) return depths[name]
-    const deps = runnables[name].deps
-    if (!deps || deps.length === 0) {
+    const runnable = runnables.find((runnable) => runnable.name === name)
+    if (!runnable) {
       depths[name] = 0
       return 0
     }
-    const d = 1 + Math.max(...deps.map(getDepth))
+    const dependencies = runnable.dependencies
+    if (!dependencies || dependencies.length === 0) {
+      depths[name] = 0
+      return 0
+    }
+    const d = 1 + Math.max(...dependencies.map(getDepth))
     depths[name] = d
     return d
   }
-  Object.keys(runnables).forEach(getDepth)
+  runnables.forEach((runnable) => getDepth(runnable.name))
   return depths
 }
 
 export default function Home() {
-  const [runnables, setRunnables] = useState<RunnableConfig>({
-    Runnable1: {
+  const [runnables, setRunnables] = useState<Runnable[]>([
+    {
+      name: 'Runnable1',
       criticality: 0,
       affinity: 0,
       period: 100,
       execution_time: 5,
       type: 'periodic',
-      deps: [],
+      dependencies: [],
     },
-  })
+  ])
 
   const nodes: Node[] = useMemo(() => {
     const depths = computeNodeDepths(runnables)
@@ -55,10 +61,10 @@ export default function Home() {
       })
     })
 
-    return Object.entries(runnables).map(([name]) => ({
-      id: name,
-      data: { label: name },
-      position: nodeMap[name] || { x: 0, y: 0 },
+    return runnables.map((runnable) => ({
+      id: runnable.name,
+      data: { label: runnable.name },
+      position: nodeMap[runnable.name] || { x: 0, y: 0 },
       type: 'default',
       style: {
         width: 60,
@@ -75,11 +81,11 @@ export default function Home() {
 
   const edges: Edge[] = useMemo(
     () =>
-      Object.entries(runnables).flatMap(([name, r]) =>
-        r.deps.map((dep) => ({
-          id: `${dep}->${name}`,
+      runnables.flatMap((runnable) =>
+        runnable.dependencies.map((dep) => ({
+          id: `${dep}->${runnable.name}`,
           source: dep,
-          target: name,
+          target: runnable.name,
           animated: true,
           style: { stroke: '#6366f1' },
           markerEnd: { type: MarkerType.ArrowClosed },

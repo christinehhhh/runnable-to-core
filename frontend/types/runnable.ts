@@ -1,10 +1,9 @@
 export type Runnable = {
+  name: string
   criticality: number
   affinity: number
   period?: number
   execution_time: number
   type: 'periodic' | 'event'
-  deps: string[]
+  dependencies: string[]
 }
-
-export type RunnableConfig = Record<string, Runnable>

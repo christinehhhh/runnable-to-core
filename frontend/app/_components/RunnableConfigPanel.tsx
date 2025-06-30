@@ -1,4 +1,4 @@
-import { Runnable, RunnableConfig } from '@/types/runnable'
+import { Runnable } from '@/types/runnable'
 import { Cross2Icon } from '@radix-ui/react-icons'
 import {
   Box,
@@ -14,35 +14,40 @@ import {
 import { useEffect, useState } from 'react'
 
 interface Props {
-  runnables: RunnableConfig
-  setRunnables: React.Dispatch<React.SetStateAction<RunnableConfig>>
+  runnables: Runnable[]
+  setRunnables: React.Dispatch<React.SetStateAction<Runnable[]>>
 }
 
 const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
   const [numCores, setNumCores] = useState(1)
 
   const handleAddRunnable = () => {
-    const newName = `Runnable${Object.keys(runnables).length + 1}`
-    setRunnables({
+    const newName = `Runnable${runnables.length + 1}`
+    setRunnables([
       ...runnables,
-      [newName]: {
+      {
+        name: newName,
         criticality: 0,
         affinity: 0,
         period: 100,
         execution_time: 5,
         type: 'periodic',
-        deps: [],
+        dependencies: [],
       },
-    })
+    ])
   }
 
   const handleRemoveRunnable = (name: string) => {
-    const newRunnables = { ...runnables }
-    delete newRunnables[name]
-    Object.keys(newRunnables).forEach((k) => {
-      newRunnables[k].deps = newRunnables[k].deps.filter((dep) => dep !== name)
-    })
-    setRunnables(newRunnables)
+    setRunnables((prev) =>
+      prev
+        .filter((runnable) => runnable.name !== name)
+        .map((runnable) => ({
+          ...runnable,
+          dependencies: runnable.dependencies.filter(
+            (dependency) => dependency !== name
+          ),
+        }))
+    )
   }
 
   const handleRunnableChange = (
@@ -50,28 +55,24 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
     field: keyof Runnable,
     value: number | string | string[] | 'periodic' | 'event'
   ) => {
-    setRunnables((prev) => ({
-      ...prev,
-      [name]: {
-        ...prev[name],
-        [field]: value,
-      },
-    }))
+    setRunnables((prev) =>
+      prev.map((runnable) =>
+        runnable.name === name ? { ...runnable, [field]: value } : runnable
+      )
+    )
   }
 
   const handleNameChange = (oldName: string, newName: string) => {
     if (!newName || oldName === newName) return
-    setRunnables((prev) => {
-      const updated = { ...prev }
-      updated[newName] = updated[oldName]
-      delete updated[oldName]
-      Object.keys(updated).forEach((k) => {
-        updated[k].deps = updated[k].deps.map((dep) =>
-          dep === oldName ? newName : dep
-        )
-      })
-      return updated
-    })
+    setRunnables((prev) =>
+      prev.map((runnable) => ({
+        ...runnable,
+        name: runnable.name === oldName ? newName : runnable.name,
+        dependencies: runnable.dependencies.map((dependency) =>
+          dependency === oldName ? newName : dependency
+        ),
+      }))
+    )
   }
 
   const criticalityOptions = [
@@ -120,105 +121,110 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
             </Button>
           </Flex>
           <Flex direction="column" gap="4">
-            {Object.entries(runnables)
+            {runnables
+              .slice()
               .reverse()
-              .map(([name, runnable]) => {
-                return (
-                  <Box
-                    key={name}
-                    className="border rounded-lg p-4 bg-gray-50 relative"
-                  >
-                    <div className="absolute top-2 right-2 z-20">
-                      <IconButton
-                        variant="ghost"
-                        color="red"
-                        onClick={() => handleRemoveRunnable(name)}
-                        aria-label="Remove Runnable"
-                      >
-                        <Cross2Icon className="hover:cursor-pointer" />
-                      </IconButton>
-                    </div>
-                    <Flex gap="2" align="center" mb="2">
-                      <EditableRunnableName
-                        name={name}
-                        onRename={(newName) => handleNameChange(name, newName)}
+              .map((runnable) => (
+                <Box
+                  key={runnable.name}
+                  className="border rounded-lg p-4 bg-gray-50 relative"
+                >
+                  <div className="absolute top-2 right-2 z-20">
+                    <IconButton
+                      variant="ghost"
+                      color="red"
+                      onClick={() => handleRemoveRunnable(runnable.name)}
+                      aria-label="Remove Runnable"
+                    >
+                      <Cross2Icon className="hover:cursor-pointer" />
+                    </IconButton>
+                  </div>
+                  <Flex gap="2" align="center" mb="2">
+                    <EditableRunnableName
+                      name={runnable.name}
+                      onRename={(newName) =>
+                        handleNameChange(runnable.name, newName)
+                      }
+                    />
+                  </Flex>
+                  <Flex gap="3" wrap="wrap">
+                    <ConfigSelectField
+                      value={runnable.criticality}
+                      field="criticality"
+                      runnableName={runnable.name}
+                      handleRunnableChange={handleRunnableChange}
+                      options={criticalityOptions}
+                      name="Criticality"
+                    />
+                    <ConfigSelectField
+                      value={runnable.affinity}
+                      field="affinity"
+                      runnableName={runnable.name}
+                      handleRunnableChange={handleRunnableChange}
+                      options={affinityOptions}
+                      name="Affinity"
+                    />
+                    <Flex direction="column" gap="1">
+                      <Text size="2">Execution Time (ms)</Text>
+                      <TextField.Root
+                        type="number"
+                        min={1}
+                        value={runnable.execution_time}
+                        onChange={(e) =>
+                          handleRunnableChange(
+                            runnable.name,
+                            'execution_time',
+                            Number(e.target.value) || 1
+                          )
+                        }
+                        className="w-24"
                       />
                     </Flex>
-                    <Flex gap="3" wrap="wrap">
-                      <ConfigSelectField
-                        value={runnable.criticality}
-                        field="criticality"
-                        runnableName={name}
-                        handleRunnableChange={handleRunnableChange}
-                        options={criticalityOptions}
-                        name="Criticality"
-                      />
-                      <ConfigSelectField
-                        value={runnable.affinity}
-                        field="affinity"
-                        runnableName={name}
-                        handleRunnableChange={handleRunnableChange}
-                        options={affinityOptions}
-                        name="Affinity"
-                      />
+                    <ConfigSelectField
+                      value={runnable.type}
+                      field="type"
+                      runnableName={runnable.name}
+                      handleRunnableChange={handleRunnableChange}
+                      options={typeOptions}
+                      name="Type"
+                    />
+                    {runnable.type === 'periodic' && (
                       <Flex direction="column" gap="1">
-                        <Text size="2">Execution Time (ms)</Text>
+                        <Text size="2">Period (ms)</Text>
                         <TextField.Root
                           type="number"
                           min={1}
-                          value={runnable.execution_time}
+                          value={runnable.period || 100}
                           onChange={(e) =>
                             handleRunnableChange(
-                              name,
-                              'execution_time',
-                              Number(e.target.value) || 1
+                              runnable.name,
+                              'period',
+                              Number(e.target.value) || 100
                             )
                           }
                           className="w-24"
                         />
                       </Flex>
-                      <ConfigSelectField
-                        value={runnable.type}
-                        field="type"
-                        runnableName={name}
-                        handleRunnableChange={handleRunnableChange}
-                        options={typeOptions}
-                        name="Type"
+                    )}
+                    <Flex direction="column" gap="1">
+                      <Text size="2">Dependencies</Text>
+                      <DependencySelector
+                        allRunnables={runnables
+                          .filter((r) => r.name !== runnable.name)
+                          .map((r) => r.name)}
+                        selected={runnable.dependencies}
+                        onChange={(deps) =>
+                          handleRunnableChange(
+                            runnable.name,
+                            'dependencies',
+                            deps
+                          )
+                        }
                       />
-                      {runnable.type === 'periodic' && (
-                        <Flex direction="column" gap="1">
-                          <Text size="2">Period (ms)</Text>
-                          <TextField.Root
-                            type="number"
-                            min={1}
-                            value={runnable.period || 100}
-                            onChange={(e) =>
-                              handleRunnableChange(
-                                name,
-                                'period',
-                                Number(e.target.value) || 100
-                              )
-                            }
-                            className="w-24"
-                          />
-                        </Flex>
-                      )}
-                      <Flex direction="column" gap="1">
-                        <Text size="2">Dependencies</Text>
-                        <DependencySelector
-                          allRunnables={Object.keys(runnables).filter(
-                            (n) => n !== name
-                          )}
-                          selected={runnable.deps}
-                          onChange={(deps) =>
-                            handleRunnableChange(name, 'deps', deps)
-                          }
-                        />
-                      </Flex>
                     </Flex>
-                  </Box>
-                )
-              })}
+                  </Flex>
+                </Box>
+              ))}
           </Flex>
         </Box>
       </ScrollArea>
