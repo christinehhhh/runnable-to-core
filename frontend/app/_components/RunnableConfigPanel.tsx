@@ -94,9 +94,9 @@ const RunnableConfigPanel = () => {
   ]
 
   return (
-    <form>
-      <div className="w-full md:w-[400px]">
-        <ScrollArea scrollbars="vertical">
+    <div className="w-full md:w-[400px]">
+      <ScrollArea scrollbars="vertical">
+        <form>
           <Heading className="text-2xl font-bold mb-6 text-center">
             Configuration
           </Heading>
@@ -207,9 +207,9 @@ const RunnableConfigPanel = () => {
                 ))}
             </Flex>
           </Box>
-        </ScrollArea>
-      </div>
-    </form>
+        </form>
+      </ScrollArea>
+    </div>
   )
 }
 
