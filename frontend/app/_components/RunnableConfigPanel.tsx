@@ -164,16 +164,10 @@ const RunnableConfigPanel = () => {
                         <Text size="2">Execution Time (ms)</Text>
                         <TextField.Root
                           type="number"
-                          min={1}
-                          value={runnable.execution_time}
-                          onChange={(e) =>
-                            handleRunnableChange(
-                              runnable.id,
-                              'execution_time',
-                              Number(e.target.value) || 1
-                            )
-                          }
                           className="w-24"
+                          {...register(
+                            `runnables.${idx}.execution_time` as const
+                          )}
                         />
                       </Flex>
                       <ConfigSelectField
@@ -187,16 +181,8 @@ const RunnableConfigPanel = () => {
                           <Text size="2">Period (ms)</Text>
                           <TextField.Root
                             type="number"
-                            min={1}
-                            value={runnable.period || 100}
-                            onChange={(e) =>
-                              handleRunnableChange(
-                                runnable.id,
-                                'period',
-                                Number(e.target.value) || 100
-                              )
-                            }
                             className="w-24"
+                            {...register(`runnables.${idx}.period` as const)}
                           />
                         </Flex>
                       )}
