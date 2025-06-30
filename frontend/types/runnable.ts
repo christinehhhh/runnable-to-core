@@ -8,3 +8,8 @@ export type Runnable = {
   type: 'periodic' | 'event'
   dependencies: string[]
 }
+
+export type SimulationForm = {
+  numCores: number
+  runnables: Runnable[]
+}
