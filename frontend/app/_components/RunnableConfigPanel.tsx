@@ -15,11 +15,31 @@ import { useState } from 'react'
 import { Controller, useFormContext } from 'react-hook-form'
 
 const RunnableConfigPanel = () => {
-  const { watch, register, setValue, control } =
+  const { watch, register, setValue, control, handleSubmit, getValues } =
     useFormContext<SimulationForm>()
 
   const numCores = watch('numCores')
   const runnables = watch('runnables')
+  const [resultId, setResultId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const onSubmit = async () => {
+    setLoading(true)
+    try {
+      const values = getValues()
+      const res = await fetch('/api/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      })
+      const data = await res.json()
+      setResultId(data.resultId)
+    } catch {
+      alert('Simulation failed!')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleAddRunnable = () => {
     const newId = (
@@ -75,7 +95,7 @@ const RunnableConfigPanel = () => {
   return (
     <div className="w-full md:w-[400px]">
       <ScrollArea scrollbars="vertical">
-        <form>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <Heading className="text-2xl font-bold mb-6 text-center">
             Configuration
           </Heading>
@@ -194,6 +214,20 @@ const RunnableConfigPanel = () => {
               })}
             </Flex>
           </Box>
+          <div className="flex flex-col gap-2 mt-4">
+            <Button type="submit" disabled={loading} variant="solid">
+              {loading ? 'Running...' : 'Run Simulation'}
+            </Button>
+            {resultId && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => window.open(`/result/${resultId}`, '_blank')}
+              >
+                View Result
+              </Button>
+            )}
+          </div>
         </form>
       </ScrollArea>
     </div>
