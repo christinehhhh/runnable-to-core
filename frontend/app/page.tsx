@@ -5,6 +5,23 @@ import { Edge, MarkerType, Node } from 'reactflow'
 import 'reactflow/dist/style.css'
 import { RunnableConfigPanel, RunnablePlayground } from './_components'
 
+function computeNodeDepths(runnables: RunnableConfig) {
+  const depths: Record<string, number> = {}
+  const getDepth = (name: string): number => {
+    if (depths[name] !== undefined) return depths[name]
+    const deps = runnables[name].deps
+    if (!deps || deps.length === 0) {
+      depths[name] = 0
+      return 0
+    }
+    const d = 1 + Math.max(...deps.map(getDepth))
+    depths[name] = d
+    return d
+  }
+  Object.keys(runnables).forEach(getDepth)
+  return depths
+}
+
 export default function Home() {
   const [runnables, setRunnables] = useState<RunnableConfig>({
     Runnable1: {
@@ -17,29 +34,45 @@ export default function Home() {
     },
   })
 
-  const nodes: Node[] = useMemo(
-    () =>
-      Object.entries(runnables).map(([name], i) => ({
-        id: name,
-        data: { label: name },
-        position: {
-          x: 150 * Math.cos((2 * Math.PI * i) / Object.keys(runnables).length),
-          y: 150 * Math.sin((2 * Math.PI * i) / Object.keys(runnables).length),
-        },
-        type: 'default',
-        style: {
-          width: 60,
-          height: 60,
-          borderRadius: 30,
-          background: '#fff',
-          border: '2px solid #6366f1',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-      })),
-    [runnables]
-  )
+  const nodes: Node[] = useMemo(() => {
+    const depths = computeNodeDepths(runnables)
+    const levels: string[][] = []
+    Object.entries(depths).forEach(([name, depth]) => {
+      if (!levels[depth]) levels[depth] = []
+      levels[depth].push(name)
+    })
+
+    const nodeMap: Record<string, { x: number; y: number }> = {}
+    const verticalSpacing = 120
+    const horizontalSpacing = 120
+
+    levels.forEach((level, depth) => {
+      const y = depth * verticalSpacing
+      const totalWidth = (level.length - 1) * horizontalSpacing
+      level.forEach((name, i) => {
+        const x = i * horizontalSpacing - totalWidth / 2
+        nodeMap[name] = { x, y }
+      })
+    })
+
+    return Object.entries(runnables).map(([name]) => ({
+      id: name,
+      data: { label: name },
+      position: nodeMap[name] || { x: 0, y: 0 },
+      type: 'default',
+      style: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        background: '#fff',
+        border: '2px solid #6366f1',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+    }))
+  }, [runnables])
+
   const edges: Edge[] = useMemo(
     () =>
       Object.entries(runnables).flatMap(([name, r]) =>
