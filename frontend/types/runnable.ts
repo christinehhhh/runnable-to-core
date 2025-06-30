@@ -1,4 +1,5 @@
 export type Runnable = {
+  id: string
   name: string
   criticality: number
   affinity: number

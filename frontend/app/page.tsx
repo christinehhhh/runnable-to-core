@@ -7,29 +7,30 @@ import { RunnableConfigPanel, RunnablePlayground } from './_components'
 
 function computeNodeDepths(runnables: Runnable[]) {
   const depths: Record<string, number> = {}
-  const getDepth = (name: string): number => {
-    if (depths[name] !== undefined) return depths[name]
-    const runnable = runnables.find((runnable) => runnable.name === name)
+  const getDepth = (id: string): number => {
+    if (depths[id] !== undefined) return depths[id]
+    const runnable = runnables.find((runnable) => runnable.id === id)
     if (!runnable) {
-      depths[name] = 0
+      depths[id] = 0
       return 0
     }
     const dependencies = runnable.dependencies
     if (!dependencies || dependencies.length === 0) {
-      depths[name] = 0
+      depths[id] = 0
       return 0
     }
     const d = 1 + Math.max(...dependencies.map(getDepth))
-    depths[name] = d
+    depths[id] = d
     return d
   }
-  runnables.forEach((runnable) => getDepth(runnable.name))
+  runnables.forEach((runnable) => getDepth(runnable.id))
   return depths
 }
 
 export default function Home() {
   const [runnables, setRunnables] = useState<Runnable[]>([
     {
+      id: '1',
       name: 'Runnable1',
       criticality: 0,
       affinity: 0,
@@ -43,9 +44,9 @@ export default function Home() {
   const nodes: Node[] = useMemo(() => {
     const depths = computeNodeDepths(runnables)
     const levels: string[][] = []
-    Object.entries(depths).forEach(([name, depth]) => {
+    Object.entries(depths).forEach(([id, depth]) => {
       if (!levels[depth]) levels[depth] = []
-      levels[depth].push(name)
+      levels[depth].push(id)
     })
 
     const nodeMap: Record<string, { x: number; y: number }> = {}
@@ -55,16 +56,16 @@ export default function Home() {
     levels.forEach((level, depth) => {
       const y = depth * verticalSpacing
       const totalWidth = (level.length - 1) * horizontalSpacing
-      level.forEach((name, i) => {
+      level.forEach((id, i) => {
         const x = i * horizontalSpacing - totalWidth / 2
-        nodeMap[name] = { x, y }
+        nodeMap[id] = { x, y }
       })
     })
 
     return runnables.map((runnable) => ({
-      id: runnable.name,
+      id: runnable.id,
       data: { label: runnable.name },
-      position: nodeMap[runnable.name] || { x: 0, y: 0 },
+      position: nodeMap[runnable.id] || { x: 0, y: 0 },
       type: 'default',
       style: {
         width: 60,
@@ -82,10 +83,10 @@ export default function Home() {
   const edges: Edge[] = useMemo(
     () =>
       runnables.flatMap((runnable) =>
-        runnable.dependencies.map((dep) => ({
-          id: `${dep}->${runnable.name}`,
-          source: dep,
-          target: runnable.name,
+        runnable.dependencies.map((depId) => ({
+          id: `${depId}->${runnable.id}`,
+          source: depId,
+          target: runnable.id,
           animated: true,
           style: { stroke: '#6366f1' },
           markerEnd: { type: MarkerType.ArrowClosed },

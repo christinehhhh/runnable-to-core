@@ -22,10 +22,14 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
   const [numCores, setNumCores] = useState(1)
 
   const handleAddRunnable = () => {
-    const newName = `Runnable${runnables.length + 1}`
+    const newId = (
+      Math.max(...runnables.map((runnable) => parseInt(runnable.id)), 0) + 1
+    ).toString()
+    const newName = `Runnable${newId}`
     setRunnables([
       ...runnables,
       {
+        id: newId,
         name: newName,
         criticality: 0,
         affinity: 0,
@@ -37,41 +41,37 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
     ])
   }
 
-  const handleRemoveRunnable = (name: string) => {
+  const handleRemoveRunnable = (id: string) => {
     setRunnables((prev) =>
       prev
-        .filter((runnable) => runnable.name !== name)
+        .filter((runnable) => runnable.id !== id)
         .map((runnable) => ({
           ...runnable,
           dependencies: runnable.dependencies.filter(
-            (dependency) => dependency !== name
+            (dependencyId) => dependencyId !== id
           ),
         }))
     )
   }
 
   const handleRunnableChange = (
-    name: string,
+    id: string,
     field: keyof Runnable,
     value: number | string | string[] | 'periodic' | 'event'
   ) => {
     setRunnables((prev) =>
       prev.map((runnable) =>
-        runnable.name === name ? { ...runnable, [field]: value } : runnable
+        runnable.id === id ? { ...runnable, [field]: value } : runnable
       )
     )
   }
 
-  const handleNameChange = (oldName: string, newName: string) => {
-    if (!newName || oldName === newName) return
+  const handleNameChange = (id: string, newName: string) => {
+    if (!newName) return
     setRunnables((prev) =>
-      prev.map((runnable) => ({
-        ...runnable,
-        name: runnable.name === oldName ? newName : runnable.name,
-        dependencies: runnable.dependencies.map((dependency) =>
-          dependency === oldName ? newName : dependency
-        ),
-      }))
+      prev.map((runnable) =>
+        runnable.id === id ? { ...runnable, name: newName } : runnable
+      )
     )
   }
 
@@ -126,14 +126,14 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
               .reverse()
               .map((runnable) => (
                 <Box
-                  key={runnable.name}
+                  key={runnable.id}
                   className="border rounded-lg p-4 bg-gray-50 relative"
                 >
                   <div className="absolute top-2 right-2 z-20">
                     <IconButton
                       variant="ghost"
                       color="red"
-                      onClick={() => handleRemoveRunnable(runnable.name)}
+                      onClick={() => handleRemoveRunnable(runnable.id)}
                       aria-label="Remove Runnable"
                     >
                       <Cross2Icon className="hover:cursor-pointer" />
@@ -143,7 +143,7 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
                     <EditableRunnableName
                       name={runnable.name}
                       onRename={(newName) =>
-                        handleNameChange(runnable.name, newName)
+                        handleNameChange(runnable.id, newName)
                       }
                     />
                   </Flex>
@@ -151,7 +151,7 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
                     <ConfigSelectField
                       value={runnable.criticality}
                       field="criticality"
-                      runnableName={runnable.name}
+                      runnableId={runnable.id}
                       handleRunnableChange={handleRunnableChange}
                       options={criticalityOptions}
                       name="Criticality"
@@ -159,7 +159,7 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
                     <ConfigSelectField
                       value={runnable.affinity}
                       field="affinity"
-                      runnableName={runnable.name}
+                      runnableId={runnable.id}
                       handleRunnableChange={handleRunnableChange}
                       options={affinityOptions}
                       name="Affinity"
@@ -172,7 +172,7 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
                         value={runnable.execution_time}
                         onChange={(e) =>
                           handleRunnableChange(
-                            runnable.name,
+                            runnable.id,
                             'execution_time',
                             Number(e.target.value) || 1
                           )
@@ -183,7 +183,7 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
                     <ConfigSelectField
                       value={runnable.type}
                       field="type"
-                      runnableName={runnable.name}
+                      runnableId={runnable.id}
                       handleRunnableChange={handleRunnableChange}
                       options={typeOptions}
                       name="Type"
@@ -197,7 +197,7 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
                           value={runnable.period || 100}
                           onChange={(e) =>
                             handleRunnableChange(
-                              runnable.name,
+                              runnable.id,
                               'period',
                               Number(e.target.value) || 100
                             )
@@ -210,12 +210,12 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
                       <Text size="2">Dependencies</Text>
                       <DependencySelector
                         allRunnables={runnables
-                          .filter((r) => r.name !== runnable.name)
-                          .map((r) => r.name)}
+                          .filter((runnable) => runnable.id !== runnable.id)
+                          .map((r) => r.id)}
                         selected={runnable.dependencies}
                         onChange={(deps) =>
                           handleRunnableChange(
-                            runnable.name,
+                            runnable.id,
                             'dependencies',
                             deps
                           )
@@ -350,9 +350,9 @@ const DependencySelector = ({
 interface ConfigSelectFieldProps {
   value: number | 'periodic' | 'event'
   field: keyof Runnable
-  runnableName: string
+  runnableId: string
   handleRunnableChange: (
-    name: string,
+    id: string,
     field: keyof Runnable,
     value: number
   ) => void
@@ -363,7 +363,7 @@ interface ConfigSelectFieldProps {
 const ConfigSelectField = ({
   value,
   field,
-  runnableName,
+  runnableId,
   handleRunnableChange,
   options,
   name,
@@ -374,7 +374,7 @@ const ConfigSelectField = ({
       <Select.Root
         value={value.toString()}
         onValueChange={(value) =>
-          handleRunnableChange(runnableName, field, Number(value))
+          handleRunnableChange(runnableId, field, Number(value))
         }
       >
         <Select.Trigger className="w-24" />
