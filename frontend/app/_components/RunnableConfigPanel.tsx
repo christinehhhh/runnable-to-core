@@ -15,7 +15,9 @@ import { useState } from 'react'
 import { Controller, useFormContext } from 'react-hook-form'
 
 const RunnableConfigPanel = () => {
-  const { watch, register, setValue } = useFormContext<SimulationForm>()
+  const { watch, register, setValue, control } =
+    useFormContext<SimulationForm>()
+
   const numCores = watch('numCores')
   const runnables = watch('runnables')
 
@@ -50,19 +52,6 @@ const RunnableConfigPanel = () => {
             (dependencyId) => dependencyId !== id
           ),
         }))
-    )
-  }
-
-  const handleRunnableChange = (
-    id: string,
-    field: keyof Runnable,
-    value: number | string | string[] | 'periodic' | 'event'
-  ) => {
-    setValue(
-      'runnables',
-      runnables.map((runnable) =>
-        runnable.id === id ? { ...runnable, [field]: value } : runnable
-      )
     )
   }
 
@@ -111,10 +100,11 @@ const RunnableConfigPanel = () => {
               </Button>
             </Flex>
             <Flex direction="column" gap="4">
-              {runnables
-                .slice()
-                .reverse()
-                .map((runnable, idx) => (
+              {[...runnables].reverse().map((runnable) => {
+                const originalIdx = runnables.findIndex(
+                  (r) => r.id === runnable.id
+                )
+                return (
                   <Box
                     key={runnable.id}
                     className="border rounded-lg p-4 bg-gray-50 relative"
@@ -133,8 +123,8 @@ const RunnableConfigPanel = () => {
                       <Text size="2">Runnable Name</Text>
                       <TextField.Root
                         className="w-24"
-                        placeholder={`Runnable ${idx + 1}`}
-                        {...register(`runnables.${idx}.name` as const)}
+                        placeholder={`Runnable ${originalIdx + 1}`}
+                        {...register(`runnables.${originalIdx}.name` as const)}
                       />
                     </Flex>
                     <Flex gap="3" wrap="wrap">
@@ -142,13 +132,13 @@ const RunnableConfigPanel = () => {
                         field="criticality"
                         options={criticalityOptions}
                         name="Criticality"
-                        index={idx}
+                        index={originalIdx}
                       />
                       <ConfigSelectField
                         field="affinity"
                         options={affinityOptions}
                         name="Affinity"
-                        index={idx}
+                        index={originalIdx}
                       />
                       <Flex direction="column" gap="1">
                         <Text size="2">Execution Time (ms)</Text>
@@ -156,7 +146,7 @@ const RunnableConfigPanel = () => {
                           type="number"
                           className="w-24"
                           {...register(
-                            `runnables.${idx}.execution_time` as const
+                            `runnables.${originalIdx}.execution_time` as const
                           )}
                         />
                       </Flex>
@@ -164,7 +154,7 @@ const RunnableConfigPanel = () => {
                         field="type"
                         options={typeOptions}
                         name="Type"
-                        index={idx}
+                        index={originalIdx}
                       />
                       {runnable.type === 'periodic' && (
                         <Flex direction="column" gap="1">
@@ -172,29 +162,36 @@ const RunnableConfigPanel = () => {
                           <TextField.Root
                             type="number"
                             className="w-24"
-                            {...register(`runnables.${idx}.period` as const)}
+                            {...register(
+                              `runnables.${originalIdx}.period` as const
+                            )}
                           />
                         </Flex>
                       )}
                       <Flex direction="column" gap="1">
                         <Text size="2">Dependencies</Text>
-                        <DependencySelector
-                          allRunnables={runnables
-                            .filter((r) => r.id !== runnable.id)
-                            .map((r) => ({ id: r.id, name: r.name }))}
-                          selected={runnable.dependencies}
-                          onChange={(deps) =>
-                            handleRunnableChange(
-                              runnable.id,
-                              'dependencies',
-                              deps
-                            )
+                        <Controller
+                          name={
+                            `runnables.${originalIdx}.dependencies` as const
                           }
+                          control={control}
+                          render={({ field }) => (
+                            <DependencySelector
+                              allRunnables={runnables.map((r) => ({
+                                id: r.id,
+                                name: r.name,
+                              }))}
+                              selfId={runnable.id}
+                              selected={field.value}
+                              onChange={field.onChange}
+                            />
+                          )}
                         />
                       </Flex>
                     </Flex>
                   </Box>
-                ))}
+                )
+              })}
             </Flex>
           </Box>
         </form>
@@ -207,12 +204,14 @@ export default RunnableConfigPanel
 
 interface DependencySelectorProps {
   allRunnables: { id: string; name: string }[]
+  selfId: string
   selected: string[]
   onChange: (deps: string[]) => void
 }
 
 const DependencySelector = ({
   allRunnables,
+  selfId,
   selected,
   onChange,
 }: DependencySelectorProps) => {
@@ -221,7 +220,8 @@ const DependencySelector = ({
   const filtered = allRunnables.filter(
     (runnable) =>
       runnable.name.toLowerCase().includes(search.toLowerCase()) &&
-      !selected.includes(runnable.id)
+      !selected.includes(runnable.id) &&
+      runnable.id !== selfId
   )
 
   return (
