@@ -1,7 +1,7 @@
 'use client'
 import { Runnable, SimulationForm } from '@/types/runnable'
 import { useMemo } from 'react'
-import { FormProvider, useForm } from 'react-hook-form'
+import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { Edge, MarkerType, Node } from 'reactflow'
 import 'reactflow/dist/style.css'
 import { RunnableConfigPanel, RunnablePlayground } from './_components'
@@ -47,8 +47,7 @@ export default function Home() {
     },
   })
 
-  const { watch } = methods
-  const runnables = watch('runnables')
+  const runnables = useWatch({ name: 'runnables', control: methods.control })
 
   const nodes: Node[] = useMemo(() => {
     const depths = computeNodeDepths(runnables)

@@ -11,7 +11,7 @@ import {
   Text,
   TextField,
 } from '@radix-ui/themes'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Controller, useFormContext } from 'react-hook-form'
 
 const RunnableConfigPanel = () => {
@@ -62,16 +62,6 @@ const RunnableConfigPanel = () => {
       'runnables',
       runnables.map((runnable) =>
         runnable.id === id ? { ...runnable, [field]: value } : runnable
-      )
-    )
-  }
-
-  const handleNameChange = (id: string, newName: string) => {
-    if (!newName) return
-    setValue(
-      'runnables',
-      runnables.map((runnable) =>
-        runnable.id === id ? { ...runnable, name: newName } : runnable
       )
     )
   }
@@ -139,12 +129,12 @@ const RunnableConfigPanel = () => {
                         <Cross2Icon className="hover:cursor-pointer" />
                       </IconButton>
                     </div>
-                    <Flex gap="2" align="center" mb="2">
-                      <EditableRunnableName
-                        name={runnable.name}
-                        onRename={(newName) =>
-                          handleNameChange(runnable.id, newName)
-                        }
+                    <Flex direction="column" gap="1">
+                      <Text size="2">Runnable Name</Text>
+                      <TextField.Root
+                        className="w-24"
+                        placeholder={`Runnable ${idx + 1}`}
+                        {...register(`runnables.${idx}.name` as const)}
                       />
                     </Flex>
                     <Flex gap="3" wrap="wrap">
@@ -214,45 +204,6 @@ const RunnableConfigPanel = () => {
 }
 
 export default RunnableConfigPanel
-
-interface EditableRunnableNameProps {
-  name: string
-  onRename: (newName: string) => void
-}
-
-const EditableRunnableName = ({
-  name,
-  onRename,
-}: EditableRunnableNameProps) => {
-  const [localName, setLocalName] = useState(name)
-  useEffect(() => {
-    setLocalName(name)
-  }, [name])
-
-  return (
-    <TextField.Root
-      value={localName}
-      onChange={(e) => setLocalName(e.target.value)}
-      onBlur={() => {
-        if (localName !== name && localName.trim() !== '') {
-          onRename(localName.trim())
-        } else {
-          setLocalName(name)
-        }
-      }}
-      onKeyDown={(e) => {
-        if (
-          e.key === 'Enter' &&
-          localName !== name &&
-          localName.trim() !== ''
-        ) {
-          onRename(localName.trim())
-        }
-      }}
-      className="font-semibold w-48"
-    />
-  )
-}
 
 interface DependencySelectorProps {
   allRunnables: { id: string; name: string }[]
