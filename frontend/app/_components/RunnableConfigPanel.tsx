@@ -210,8 +210,8 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
                       <Text size="2">Dependencies</Text>
                       <DependencySelector
                         allRunnables={runnables
-                          .filter((runnable) => runnable.id !== runnable.id)
-                          .map((r) => r.id)}
+                          .filter((r) => r.id !== runnable.id)
+                          .map((r) => ({ id: r.id, name: r.name }))}
                         selected={runnable.dependencies}
                         onChange={(deps) =>
                           handleRunnableChange(
@@ -274,7 +274,7 @@ const EditableRunnableName = ({
 }
 
 interface DependencySelectorProps {
-  allRunnables: string[]
+  allRunnables: { id: string; name: string }[]
   selected: string[]
   onChange: (deps: string[]) => void
 }
@@ -287,29 +287,33 @@ const DependencySelector = ({
   const [search, setSearch] = useState('')
   const [focused, setFocused] = useState(false)
   const filtered = allRunnables.filter(
-    (n) =>
-      n.toLowerCase().includes(search.toLowerCase()) && !selected.includes(n)
+    (runnable) =>
+      runnable.name.toLowerCase().includes(search.toLowerCase()) &&
+      !selected.includes(runnable.id)
   )
 
   return (
     <div className="relative">
       <div className="flex flex-wrap gap-1 mb-1">
-        {selected.map((dep) => (
-          <span
-            key={dep}
-            className="inline-flex items-center bg-indigo-100 text-indigo-800 rounded px-2 py-0.5 text-xs mr-1"
-          >
-            {dep}
-            <button
-              type="button"
-              className="ml-1 text-indigo-500 hover:text-red-500"
-              onClick={() => onChange(selected.filter((d) => d !== dep))}
-              aria-label={`Remove ${dep}`}
+        {selected.map((depId) => {
+          const dep = allRunnables.find((runnable) => runnable.id === depId)
+          return (
+            <span
+              key={depId}
+              className="inline-flex items-center bg-indigo-100 text-indigo-800 rounded px-2 py-0.5 text-xs mr-1"
             >
-              ×
-            </button>
-          </span>
-        ))}
+              {dep?.name || depId}
+              <button
+                type="button"
+                className="ml-1 text-indigo-500 hover:text-red-500"
+                onClick={() => onChange(selected.filter((d) => d !== depId))}
+                aria-label={`Remove ${dep?.name || depId}`}
+              >
+                ×
+              </button>
+            </span>
+          )
+        })}
       </div>
       <input
         type="text"
@@ -321,7 +325,7 @@ const DependencySelector = ({
         onChange={(e) => setSearch(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && filtered.length > 0) {
-            onChange([...selected, filtered[0]])
+            onChange([...selected, filtered[0].id])
             setSearch('')
             e.preventDefault()
           }
@@ -329,16 +333,16 @@ const DependencySelector = ({
       />
       {focused && filtered.length > 0 && (
         <div className="absolute left-0 right-0 border rounded bg-white shadow mt-1 max-h-32 overflow-y-auto z-10">
-          {filtered.map((n) => (
+          {filtered.map((runnable) => (
             <div
-              key={n}
+              key={runnable.id}
               className="px-2 py-1 cursor-pointer hover:bg-indigo-100"
               onMouseDown={() => {
-                onChange([...selected, n])
+                onChange([...selected, runnable.id])
                 setSearch('')
               }}
             >
-              {n}
+              {runnable.name}
             </div>
           ))}
         </div>
