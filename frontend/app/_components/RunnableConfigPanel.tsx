@@ -12,7 +12,7 @@ import {
   TextField,
 } from '@radix-ui/themes'
 import { useEffect, useState } from 'react'
-import { useFormContext } from 'react-hook-form'
+import { Controller, useFormContext } from 'react-hook-form'
 
 const RunnableConfigPanel = () => {
   const { watch, register, setValue } = useFormContext<SimulationForm>()
@@ -124,7 +124,7 @@ const RunnableConfigPanel = () => {
               {runnables
                 .slice()
                 .reverse()
-                .map((runnable) => (
+                .map((runnable, idx) => (
                   <Box
                     key={runnable.id}
                     className="border rounded-lg p-4 bg-gray-50 relative"
@@ -149,20 +149,16 @@ const RunnableConfigPanel = () => {
                     </Flex>
                     <Flex gap="3" wrap="wrap">
                       <ConfigSelectField
-                        value={runnable.criticality}
                         field="criticality"
-                        runnableId={runnable.id}
-                        handleRunnableChange={handleRunnableChange}
                         options={criticalityOptions}
                         name="Criticality"
+                        index={idx}
                       />
                       <ConfigSelectField
-                        value={runnable.affinity}
                         field="affinity"
-                        runnableId={runnable.id}
-                        handleRunnableChange={handleRunnableChange}
                         options={affinityOptions}
                         name="Affinity"
+                        index={idx}
                       />
                       <Flex direction="column" gap="1">
                         <Text size="2">Execution Time (ms)</Text>
@@ -181,12 +177,10 @@ const RunnableConfigPanel = () => {
                         />
                       </Flex>
                       <ConfigSelectField
-                        value={runnable.type}
                         field="type"
-                        runnableId={runnable.id}
-                        handleRunnableChange={handleRunnableChange}
                         options={typeOptions}
                         name="Type"
+                        index={idx}
                       />
                       {runnable.type === 'periodic' && (
                         <Flex direction="column" gap="1">
@@ -353,44 +347,48 @@ const DependencySelector = ({
 }
 
 interface ConfigSelectFieldProps {
-  value: number | 'periodic' | 'event'
   field: keyof Runnable
-  runnableId: string
-  handleRunnableChange: (
-    id: string,
-    field: keyof Runnable,
-    value: number
-  ) => void
   options: { value: string; label: string }[]
   name: string
+  index: number
 }
 
 const ConfigSelectField = ({
-  value,
   field,
-  runnableId,
-  handleRunnableChange,
   options,
   name,
+  index,
 }: ConfigSelectFieldProps) => {
+  const { control } = useFormContext<SimulationForm>()
+
   return (
     <Flex direction="column" gap="1">
       <Text size="2">{name}</Text>
-      <Select.Root
-        value={value.toString()}
-        onValueChange={(value) =>
-          handleRunnableChange(runnableId, field, Number(value))
-        }
-      >
-        <Select.Trigger className="w-24" />
-        <Select.Content>
-          {options.map((option) => (
-            <Select.Item key={option.value} value={option.value}>
-              {option.label}
-            </Select.Item>
-          ))}
-        </Select.Content>
-      </Select.Root>
+      <Controller
+        control={control}
+        name={`runnables.${index}.${field}` as const}
+        render={({ field: controllerField }) => (
+          <Select.Root
+            value={controllerField.value?.toString() ?? ''}
+            onValueChange={(val) => {
+              if (field === 'type') {
+                controllerField.onChange(val)
+              } else {
+                controllerField.onChange(Number(val))
+              }
+            }}
+          >
+            <Select.Trigger className="w-24" />
+            <Select.Content>
+              {options.map((option) => (
+                <Select.Item key={option.value} value={option.value}>
+                  {option.label}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Root>
+        )}
+      />
     </Flex>
   )
 }
