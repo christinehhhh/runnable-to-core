@@ -5,27 +5,17 @@ import { Edge, MarkerType, Node } from 'reactflow'
 import 'reactflow/dist/style.css'
 import { RunnableConfigPanel, RunnablePlayground } from './_components'
 
-const defaultRunnables: RunnableConfig = {
-  RadarCapture: {
-    criticality: 1,
-    affinity: 0,
-    period: 75,
-    execution_time: 2,
-    type: 'periodic',
-    deps: [],
-  },
-  CameraCapture: {
-    criticality: 0,
-    affinity: 0,
-    period: 50,
-    execution_time: 7,
-    type: 'periodic',
-    deps: [],
-  },
-}
-
 export default function Home() {
-  const [runnables, setRunnables] = useState<RunnableConfig>(defaultRunnables)
+  const [runnables, setRunnables] = useState<RunnableConfig>({
+    Runnable1: {
+      criticality: 0,
+      affinity: 0,
+      period: 100,
+      execution_time: 5,
+      type: 'periodic',
+      deps: [],
+    },
+  })
 
   const nodes: Node[] = useMemo(
     () =>
