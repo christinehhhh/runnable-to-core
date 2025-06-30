@@ -12,39 +12,19 @@ import {
   TextField,
 } from '@radix-ui/themes'
 import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useFormContext } from 'react-hook-form'
 
-interface Props {
-  runnables: Runnable[]
-  setRunnables: React.Dispatch<React.SetStateAction<Runnable[]>>
-}
-
-const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
-  const { watch, register } = useForm<SimulationForm>({
-    defaultValues: {
-      numCores: 1,
-      runnables: [
-        {
-          id: '1',
-          name: 'Runnable1',
-          criticality: 0,
-          affinity: 0,
-          period: 100,
-          execution_time: 5,
-          type: 'periodic',
-          dependencies: [],
-        },
-      ],
-    },
-  })
+const RunnableConfigPanel = () => {
+  const { watch, register, setValue } = useFormContext<SimulationForm>()
   const numCores = watch('numCores')
+  const runnables = watch('runnables')
 
   const handleAddRunnable = () => {
     const newId = (
       Math.max(...runnables.map((runnable) => parseInt(runnable.id)), 0) + 1
     ).toString()
     const newName = `Runnable${newId}`
-    setRunnables([
+    setValue('runnables', [
       ...runnables,
       {
         id: newId,
@@ -60,8 +40,9 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
   }
 
   const handleRemoveRunnable = (id: string) => {
-    setRunnables((prev) =>
-      prev
+    setValue(
+      'runnables',
+      runnables
         .filter((runnable) => runnable.id !== id)
         .map((runnable) => ({
           ...runnable,
@@ -77,8 +58,9 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
     field: keyof Runnable,
     value: number | string | string[] | 'periodic' | 'event'
   ) => {
-    setRunnables((prev) =>
-      prev.map((runnable) =>
+    setValue(
+      'runnables',
+      runnables.map((runnable) =>
         runnable.id === id ? { ...runnable, [field]: value } : runnable
       )
     )
@@ -86,8 +68,9 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
 
   const handleNameChange = (id: string, newName: string) => {
     if (!newName) return
-    setRunnables((prev) =>
-      prev.map((runnable) =>
+    setValue(
+      'runnables',
+      runnables.map((runnable) =>
         runnable.id === id ? { ...runnable, name: newName } : runnable
       )
     )
@@ -133,7 +116,7 @@ const RunnableConfigPanel = ({ runnables, setRunnables }: Props) => {
               <Text as="label" size="3" className="font-medium">
                 Runnables
               </Text>
-              <Button variant="soft" onClick={handleAddRunnable}>
+              <Button variant="soft" onClick={handleAddRunnable} type="button">
                 Add Runnable
               </Button>
             </Flex>

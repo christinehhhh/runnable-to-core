@@ -1,6 +1,7 @@
 'use client'
-import { Runnable } from '@/types/runnable'
-import { useMemo, useState } from 'react'
+import { Runnable, SimulationForm } from '@/types/runnable'
+import { useMemo } from 'react'
+import { FormProvider, useForm } from 'react-hook-form'
 import { Edge, MarkerType, Node } from 'reactflow'
 import 'reactflow/dist/style.css'
 import { RunnableConfigPanel, RunnablePlayground } from './_components'
@@ -28,18 +29,26 @@ function computeNodeDepths(runnables: Runnable[]) {
 }
 
 export default function Home() {
-  const [runnables, setRunnables] = useState<Runnable[]>([
-    {
-      id: '1',
-      name: 'Runnable1',
-      criticality: 0,
-      affinity: 0,
-      period: 100,
-      execution_time: 5,
-      type: 'periodic',
-      dependencies: [],
+  const methods = useForm<SimulationForm>({
+    defaultValues: {
+      numCores: 1,
+      runnables: [
+        {
+          id: '1',
+          name: 'Runnable1',
+          criticality: 0,
+          affinity: 0,
+          period: 100,
+          execution_time: 5,
+          type: 'periodic',
+          dependencies: [],
+        },
+      ],
     },
-  ])
+  })
+
+  const { watch } = methods
+  const runnables = watch('runnables')
 
   const nodes: Node[] = useMemo(() => {
     const depths = computeNodeDepths(runnables)
@@ -98,7 +107,9 @@ export default function Home() {
   return (
     <div className="flex flex-col md:flex-row gap-8 max-w-6xl mx-auto py-10 px-4 min-h-screen h-screen overflow-hidden">
       <RunnablePlayground nodes={nodes} edges={edges} />
-      <RunnableConfigPanel runnables={runnables} setRunnables={setRunnables} />
+      <FormProvider {...methods}>
+        <RunnableConfigPanel />
+      </FormProvider>
     </div>
   )
 }
