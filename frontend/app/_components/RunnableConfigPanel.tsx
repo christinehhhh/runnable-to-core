@@ -3,34 +3,41 @@ import { Cross2Icon } from '@radix-ui/react-icons'
 import {
   Box,
   Button,
+  Dialog,
   Flex,
   Heading,
   IconButton,
+  RadioGroup,
   ScrollArea,
   Select,
   Text,
   TextField,
 } from '@radix-ui/themes'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Controller, useFormContext } from 'react-hook-form'
 
+type Algorithm = 'all' | 'fcfs' | 'criticality'
+
 const RunnableConfigPanel = () => {
-  const { watch, register, setValue, control, handleSubmit, getValues } =
+  const { watch, register, setValue, control, handleSubmit } =
     useFormContext<SimulationForm>()
 
   const numCores = watch('numCores')
   const runnables = watch('runnables')
   const [resultId, setResultId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState<Algorithm>('all')
 
-  const onSubmit = async () => {
+  const formRef = useRef<HTMLFormElement>(null)
+
+  const onSubmit = async (values: SimulationForm) => {
     setLoading(true)
     try {
-      const values = getValues()
       const res = await fetch('/api/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify({ ...values, algorithm: selectedAlgorithm }),
       })
       const data = await res.json()
       setResultId(data.resultId)
@@ -96,7 +103,7 @@ const RunnableConfigPanel = () => {
   return (
     <div className="w-full md:w-[400px]">
       <ScrollArea scrollbars="vertical">
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form ref={formRef} onSubmit={handleSubmit(onSubmit)}>
           <Heading className="text-2xl font-bold mb-6 text-center">
             Configuration
           </Heading>
@@ -216,8 +223,12 @@ const RunnableConfigPanel = () => {
             </Flex>
           </Box>
           <div className="flex flex-col gap-2 mt-4">
-            <Button type="submit" disabled={loading} variant="solid">
-              {loading ? 'Running...' : 'Run Simulation'}
+            <Button
+              type="button"
+              loading={loading}
+              onClick={() => setDialogOpen(true)}
+            >
+              Run Simulation
             </Button>
             {resultId && (
               <Button
@@ -231,6 +242,35 @@ const RunnableConfigPanel = () => {
           </div>
         </form>
       </ScrollArea>
+      <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog.Content>
+          <Dialog.Title>Select Simulation Algorithm</Dialog.Title>
+          <RadioGroup.Root
+            value={selectedAlgorithm}
+            onValueChange={(value) => setSelectedAlgorithm(value as Algorithm)}
+          >
+            <RadioGroup.Item value="all">All</RadioGroup.Item>
+            <RadioGroup.Item value="fcfs">
+              First come - first serve
+            </RadioGroup.Item>
+            <RadioGroup.Item value="criticality">Criticality</RadioGroup.Item>
+          </RadioGroup.Root>
+          <Flex gap="3" mt="4" justify="end">
+            <Button variant="soft" onClick={() => setDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setDialogOpen(false)
+                formRef.current?.requestSubmit()
+              }}
+              loading={loading}
+            >
+              Run
+            </Button>
+          </Flex>
+        </Dialog.Content>
+      </Dialog.Root>
     </div>
   )
 }
