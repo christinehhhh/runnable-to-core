@@ -20,16 +20,15 @@ async function getResult(id: string) {
 export default async function ResultPage({
   params,
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
-  const result = await getResult(params.id)
+  const { id } = await params
+  const result = await getResult(id)
   if (!result) return notFound()
 
   return (
     <div className="max-w-4xl mx-auto py-10 px-4">
-      <h1 className="text-3xl font-bold mb-6">
-        Simulation Result: {params.id}
-      </h1>
+      <h1 className="text-3xl font-bold mb-6">Simulation Result: {id}</h1>
       <div className="mb-6">
         <div className="border-b mb-4">
           <nav className="flex gap-4">
