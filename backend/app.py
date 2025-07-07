@@ -1,3 +1,5 @@
+from criticality.criticality import run_criticality
+from fcfs.fcfs import run_fcfs_affinity
 from shared_log import SharedExecutionLog
 import heapq
 from collections import defaultdict
@@ -146,34 +148,65 @@ def schedule():
         runnables = data.get('runnables', {})
         num_cores = data.get('numCores', 1)
         simulation_time = data.get('simulationTime', 400)
+        algorithm = data.get('algorithm', 'all')
 
         if not runnables:
             return jsonify({'error': 'No runnables provided'}), 400
 
-        # Run the scheduling algorithm
-        execution_log, total_execution_time = run_scheduling(
-            runnables, num_cores, simulation_time)
+        results = {}
 
-        # Create visualization
-        plot_data = create_gantt_chart(execution_log)
+        if algorithm in ('all', 'fcfs'):
+            execution_log_fcfs, total_execution_time_fcfs = run_fcfs_affinity(
+                runnables, num_cores, simulation_time
+            )
+            plot_data_fcfs = create_gantt_chart(
+                execution_log_fcfs, title="FCFS Gantt Chart")
+            log_entries_fcfs = [
+                {
+                    'start': start,
+                    'end': end,
+                    'task': task,
+                    'instance': instance,
+                    'affinity': affinity
+                }
+                for start, end, task, instance, affinity in execution_log_fcfs.get_log()
+            ]
+            results['fcfs'] = {
+                'totalExecutionTime': total_execution_time_fcfs,
+                'executionLog': log_entries_fcfs,
+                'ganttChart': plot_data_fcfs
+            }
 
-        # Prepare execution log data
-        log_entries = []
-        for start, end, task, instance, affinity in execution_log.get_log():
-            log_entries.append({
-                'start': start,
-                'end': end,
-                'task': task,
-                'instance': instance,
-                'affinity': affinity
-            })
+        if algorithm in ('all', 'criticality'):
+            execution_log_crit, total_execution_time_crit = run_criticality(
+                runnables, num_cores, simulation_time
+            )
+            plot_data_crit = create_gantt_chart(
+                execution_log_crit, title="Criticality Gantt Chart")
+            log_entries_crit = [
+                {
+                    'start': start,
+                    'end': end,
+                    'task': task,
+                    'instance': instance,
+                    'affinity': affinity
+                }
+                for start, end, task, instance, affinity in execution_log_crit.get_log()
+            ]
+            results['criticality'] = {
+                'totalExecutionTime': total_execution_time_crit,
+                'executionLog': log_entries_crit,
+                'ganttChart': plot_data_crit
+            }
 
-        return jsonify({
-            'success': True,
-            'totalExecutionTime': total_execution_time,
-            'executionLog': log_entries,
-            'ganttChart': plot_data
-        })
+        if algorithm == 'all':
+            return jsonify({'success': True, 'results': results})
+        if algorithm == 'fcfs':
+            return jsonify({'success': True, **results['fcfs']})
+        if algorithm == 'criticality':
+            return jsonify({'success': True, **results['criticality']})
+
+        return jsonify({'error': 'Unknown algorithm'}), 400
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
