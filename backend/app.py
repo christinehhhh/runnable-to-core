@@ -1,17 +1,19 @@
+import base64
+import heapq
+import io
+import json
+import os
+import sys
+from collections import defaultdict
+
+import matplotlib
+import matplotlib.pyplot as plt
 from criticality.criticality import run_criticality
 from fcfs.fcfs import run_fcfs_affinity
-from shared_log import SharedExecutionLog
-import heapq
-from collections import defaultdict
-import io
-import base64
-import matplotlib.pyplot as plt
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
-import json
-import sys
-import os
-import matplotlib
+from shared_log import SharedExecutionLog
+
 matplotlib.use('Agg')  # Use non-interactive backend
 
 # Add current directory to path to import local modules
@@ -100,37 +102,42 @@ def run_scheduling(runnables, num_cores, simulation_time_ms=400):
     return execution_log, CPU_FREE_TIME
 
 
-def create_gantt_chart(execution_log, title="Gantt Chart of Runnable Execution Schedule"):
-    """Create a Gantt chart from the execution log and return as base64 string."""
-    filtered_log = [(start, end, task, instance)
-                    for start, end, task, instance, _ in execution_log.get_log()]
+def create_gantt_chart(execution_log, title="Gantt Chart of Core Scheduling"):
+    """Create a Gantt chart from the execution log and return as base64 string, with y-axis as cores."""
+    filtered_log = [(start, end, task, instance, affinity)
+                    for start, end, task, instance, affinity in execution_log.get_log()]
 
     if not filtered_log:
         return None
 
-    task_colors = {}
-    color_palette = plt.cm.get_cmap("tab20", len(
-        set(task for _, _, task, _ in filtered_log)))
-    for i, task in enumerate(sorted(set(task for _, _, task, _ in filtered_log))):
-        task_colors[task] = color_palette(i)
+    import matplotlib.patches as mpatches
+
+    cores = sorted(set(affinity for *_, affinity in filtered_log), key=str)
+    tasks = sorted(set(task for _, _, task, _, _ in filtered_log))
+    color_palette = plt.cm.get_cmap("tab20", len(tasks))
+    task_colors = {task: color_palette(i) for i, task in enumerate(tasks)}
+    y_positions = {core: i for i, core in enumerate(cores)}
 
     fig, ax = plt.subplots(figsize=(12, 6))
 
-    for i, (start, end, task, instance) in enumerate(filtered_log):
-        ax.barh(task, end - start, left=start, color=task_colors[task])
+    for start, end, task, instance, core in filtered_log:
+        ax.barh(y_positions[core], end - start, left=start,
+                color=task_colors[task], edgecolor="black")
+        ax.text(start + (end - start) / 2,
+                y_positions[core], task, va='center', ha='center', color='white', fontsize=8)
 
+    ax.set_yticks(range(len(cores)))
+    ax.set_yticklabels([f"Core {core}" for core in cores])
     ax.set_xlabel("Time (ms)")
     ax.set_title(title)
-    ax.grid(True)
-
-    handles = [plt.Rectangle((0, 0), 1, 1, color=color, label=task)
+    ax.grid(True, axis='x', linestyle='--', alpha=0.5)
+    handles = [mpatches.Patch(color=color, label=task)
                for task, color in task_colors.items()]
-    ax.legend(handles=handles, bbox_to_anchor=(
-        1.05, 1), loc='upper left', title="Tasks")
+    ax.legend(handles=handles, bbox_to_anchor=(1.05, 1),
+              loc='upper left', title="Runnables")
 
     plt.tight_layout()
 
-    # Convert plot to base64 string
     img = io.BytesIO()
     plt.savefig(img, format='png', bbox_inches='tight', dpi=300)
     img.seek(0)
@@ -140,17 +147,31 @@ def create_gantt_chart(execution_log, title="Gantt Chart of Runnable Execution S
     return plot_url
 
 
+def normalize_runnables(runnables):
+    for name, props in runnables.items():
+        for key in ['period', 'execution_time', 'criticality', 'affinity']:
+            if key in props:
+                props[key] = int(props[key])
+        if 'deps' in props and isinstance(props['deps'], list):
+            props['deps'] = [str(dep) for dep in props['deps']]
+    return runnables
+
+
 @app.route('/api/schedule', methods=['POST'])
 def schedule():
     """API endpoint to run scheduling with given runnables and number of cores."""
     try:
         data = request.get_json()
+        print('Received data:', data)  # Debug print
         runnables = data.get('runnables', {})
-        num_cores = data.get('numCores', 1)
-        simulation_time = data.get('simulationTime', 400)
+        num_cores = int(data.get('numCores', 1))
+        simulation_time = int(data.get('simulationTime', 400))
         algorithm = data.get('algorithm', 'all')
 
+        runnables = normalize_runnables(runnables)
+
         if not runnables:
+            print('No runnables provided!')  # Debug print
             return jsonify({'error': 'No runnables provided'}), 400
 
         results = {}
@@ -209,6 +230,7 @@ def schedule():
         return jsonify({'error': 'Unknown algorithm'}), 400
 
     except Exception as e:
+        print('Exception in /api/schedule:', e)  # Debug print
         return jsonify({'error': str(e)}), 500
 
 

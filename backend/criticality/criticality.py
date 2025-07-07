@@ -17,6 +17,12 @@ class ExecutionLog:
 
 
 def run_criticality(runnables, num_cores=2, simulation_time=400):
+    print(runnables)
+    id_to_name = {props['id']: name for name,
+                  props in runnables.items() if 'id' in props}
+    name_to_id = {name: props['id']
+                  for name, props in runnables.items() if 'id' in props}
+
     event_queue = []
     heapq.heapify(event_queue)
     core_time = [0 for _ in range(num_cores)]
@@ -39,20 +45,21 @@ def run_criticality(runnables, num_cores=2, simulation_time=400):
 
     def are_tasks_independent(task1, task2):
         """Check if two tasks are independent by verifying they don't share dependencies."""
+        id1 = name_to_id.get(task1, task1)
+        id2 = name_to_id.get(task2, task2)
         deps1 = set(runnables[task1].get("deps", []))
         deps2 = set(runnables[task2].get("deps", []))
-        return not (deps1 & {task2} or deps2 & {task1} or deps1 & deps2)
+        return not (deps1 & {id2} or deps2 & {id1} or deps1 & deps2)
 
     def schedule_event_runnables(triggered_tasks, current_time):
         """Schedule event-based tasks that are triggered by completed dependencies."""
         for name, props in runnables.items():
             if props["type"] != "event":
                 continue
-
-            if not set(props["deps"]) & set(triggered_tasks):
+            triggered_ids = [name_to_id.get(t, t) for t in triggered_tasks]
+            if not set(props["deps"]) & set(triggered_ids):
                 continue
-
-            if all(completed_instances[dep] > event_task_instance_counter[name]
+            if all(completed_instances[id_to_name[dep]] > event_task_instance_counter[name]
                    for dep in props["deps"]):
                 current_instance = event_task_instance_counter[name]
                 new_task_tuple = (

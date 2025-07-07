@@ -19,7 +19,7 @@ import { Controller, useFormContext } from 'react-hook-form'
 type Algorithm = 'all' | 'fcfs' | 'criticality'
 
 const RunnableConfigPanel = () => {
-  const { watch, register, setValue, control, handleSubmit } =
+  const { watch, register, setValue, control, handleSubmit, getValues } =
     useFormContext<SimulationForm>()
 
   const numCores = watch('numCores')
@@ -34,10 +34,15 @@ const RunnableConfigPanel = () => {
   const onSubmit = async (values: SimulationForm) => {
     setLoading(true)
     try {
+      const latestValues = getValues()
       const res = await fetch('/api/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...values, algorithm: selectedAlgorithm }),
+        body: JSON.stringify({
+          ...values,
+          numCores: latestValues.numCores,
+          algorithm: selectedAlgorithm,
+        }),
       })
       const data = await res.json()
       setResultId(data.resultId)
