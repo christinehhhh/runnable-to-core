@@ -50,8 +50,11 @@ def run_fcfs_affinity(runnables, num_cores=2, simulation_time=400):
             triggered_ids = [name_to_id.get(t, t) for t in triggered_tasks]
             if not set(props["deps"]) & set(triggered_ids):
                 continue
-            if all(completed_instances[id_to_name[dep]] > event_task_instance_counter[name]
-                   for dep in props["deps"]):
+            if all(
+                completed_instances[id_to_name.get(dep, dep)]
+                > event_task_instance_counter[name]
+                for dep in props["deps"]
+            ):
                 current_instance = event_task_instance_counter[name]
                 heapq.heappush(event_queue, (current_time, name,
                                props["execution_time"], current_instance))

@@ -3,12 +3,13 @@
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
-
-from affinity.affinity import execution_log_core as affinity_log
-from criticality.criticality import execution_log_core as criticality_log
+from criticality.criticality import run_criticality
+from criticality.tri_core_criticality import \
+    execution_log_core as tri_core_criticality_log
 from driving_mock import execution_log as driving_mock_log
-from affinity.tri_core_affinity import execution_log_core as tri_core_affinity_log
-from criticality.tri_core_criticality import execution_log_core as tri_core_criticality_log
+from driving_mock import runnables as driving_runnables
+from fcfs.fcfs import run_fcfs_affinity
+from fcfs.tri_core_fcfs import execution_log_core as tri_core_affinity_log
 
 
 def get_finish_time(log):
@@ -65,6 +66,8 @@ def plot_schedule(log_data, title, ax):
 
 
 # Prepare logs and core counts for each method
+affinity_log, _ = run_fcfs_affinity(driving_runnables, num_cores=2)
+criticality_log, _ = run_criticality(driving_runnables, num_cores=2)
 methods = [
     ("Driving Mock", driving_mock_log, 1),
     ("Affinity", affinity_log, 2),
