@@ -223,13 +223,13 @@ def run_main_scheduler(
         schedule_out: List[ScheduleEntry] = []
 
         while len(completed) < len(runnables):
-            # Filter eligible: remove completed, running, and those not ready (eta > tau)
-            # TODO: do not exclude eligible that are not in the current iteration
+            # Filter eligible: remove completed/running only for current iteration runnables
             eligible = {
-                name: (eta_val, iteration) for name, (eta_val, iteration) in eligible.items() if name not in completed and name not in running
+                name: (eta_val, iteration) for name, (eta_val, iteration) in eligible.items()
+                if (iteration == _k + 1 and name not in completed and name not in running) or (iteration != _k + 1)
             }
             ordered = _order_eligible(
-                list(eligible.keys()), runnables, eta, scheduling_policy)
+                list(eligible), runnables, eta, scheduling_policy)
 
             # Dynamic allocation if requested
             available_cores = idle_cores
@@ -237,6 +237,7 @@ def run_main_scheduler(
                 c_alloc, available_cores = _dynamic_allocation(
                     idle_cores, ordered)
 
+            # TODO: only consider ordered for current iteration runnables
             ready = ordered[:c_alloc] if c_alloc > 0 else []
 
             # Dispatch ready
