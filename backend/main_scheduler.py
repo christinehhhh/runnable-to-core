@@ -255,8 +255,10 @@ def run_main_scheduler(
 
                 # Select a core
                 assigned_core: Optional[int] = None
-                # TODO: <= tau ?
-                if props.get('type') == 'periodic' and int(eta.get(name, 0)) <= tau and available_cores:
+                if props.get('type') == 'periodic' and tau < int(eta.get(name, 0)):
+                    tau = int(eta.get(name, 0))
+
+                if props.get('type') == 'periodic' and available_cores:
                     assigned_core = min(available_cores)
                     available_cores.remove(assigned_core)
                     idle_cores.remove(assigned_core)
@@ -269,6 +271,7 @@ def run_main_scheduler(
                     # Add next activation time to eligible
                     eta[name] = start_i + T_i
                     # Next iteration for periodic runnables
+                    # TODO: Can happen that within the same iteration, a periodic runnable is activated multiple times. Not necessarily + 2
                     eligible[name] = (eta[name], _k + 2)
                 else:
                     # Try to find a core that satisfies strict periodicity guard for periodic; events always ok TODO: Seems to be strict periodicity not guaranteed here
@@ -308,31 +311,8 @@ def run_main_scheduler(
                     break
 
             # Advance time to the next finish
-            min_finish = min(fin for fin, _ in running.values())
-
-            # Get minimum activation time of periodic runnables in eligible set
-            periodic_eligible = [n for n in eligible.keys() if runnables.get(
-                n, {}).get('type') == 'periodic']
-
-            # If eligible set contains only periodic runnables, consider their activation times
-            if len(periodic_eligible) == len(eligible) and len(eligible) > 0:
-                # Find the periodic runnable with minimum eta
-                min_eta_runnable = min(
-                    periodic_eligible, key=lambda n: eligible[n][0])
-                min_eta_iteration = eligible[min_eta_runnable][1]
-
-                # Only consider periodic activation times if the min eta runnable has same iteration
-                if min_eta_iteration == _k + 1:
-                    # Get eta value from tuple
-                    min_eligible = min(eligible[n][0]
-                                       for n in periodic_eligible)
-                    tau = max(min_finish, min_eligible)
-                else:
-                    # If min eta runnable is from different iteration, just advance to next finish
-                    tau = min_finish
-            else:
-                # If there are non-periodic runnables, just advance to next finish
-                tau = min_finish
+            tau = min(fin for fin, _ in running.values())
+            # TODO: Add iteration labelling for completed runnables.
 
             # Complete tasks finishing at tau
             just_finished = [n for n, (fin, _) in list(
