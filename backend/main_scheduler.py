@@ -193,20 +193,22 @@ def run_main_scheduler(
     iteration_period = _calculate_iteration_period(runnables)
     print(f"Calculated iteration period: {iteration_period}ms")
 
+    # TODO: tau should not get reset to 0 every iteration
+    tau = 0
+
+    # Activation times (eta_i)
+    eta: Dict[str, int] = {name: 0 for name in runnables}
+
+    # Eligible set initialization
+    eligible: Dict[str, Tuple[int, int]] = {}  # name -> (eta, iteration)
+
     for _k in range(max(1, iterations)):
-        # TODO: tau should not get reset to 0 every iteration
-        tau = 0
         completed: Set[str] = set()
         running: Dict[str, Tuple[int, int]] = {}  # name -> (finish, core)
 
         # Per-core next activation time for periodic tasks
         theta: Dict[Tuple[str, int], int] = {}
 
-        # Activation times (eta_i)
-        eta: Dict[str, int] = {name: 0 for name in runnables}
-
-        # Eligible set initialization
-        eligible: Dict[str, Tuple[int, int]] = {}  # name -> (eta, iteration)
         for name, props in runnables.items():
             deps = props.get('deps', []) or []
             if props.get('type') == 'periodic' or len(deps) == 0:
