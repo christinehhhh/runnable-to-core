@@ -65,6 +65,22 @@ def _dynamic_allocation(idle_cores: List[int], eligible: List[str]) -> Tuple[int
     return alloc, idle_cores[:alloc]
 
 
+def _calculate_iteration_period(runnables: Dict[str, Dict]) -> int:
+    """Calculate the minimum period for iteration boundaries."""
+    periods = []
+    for name, props in runnables.items():
+        if props.get('type') == 'periodic':
+            period = props.get('period', 0)
+            if period > 0:
+                periods.append(period)
+
+    if not periods:
+        return 1  # Default if no periodic runnables
+
+    # Return the minimum period (most frequent activation)
+    return min(periods)
+
+
 def run_main_scheduler(
     runnables: Dict[str, Dict],
     num_cores: int,
@@ -173,6 +189,10 @@ def run_main_scheduler(
     makespans: List[int] = []
     cumulative_offset = 0
 
+    # Calculate iteration period (minimum period) for iteration boundaries
+    iteration_period = _calculate_iteration_period(runnables)
+    print(f"Calculated iteration period: {iteration_period}ms")
+
     for _k in range(max(1, iterations)):
         tau = 0
         completed: Set[str] = set()
@@ -185,11 +205,12 @@ def run_main_scheduler(
         eta: Dict[str, int] = {name: 0 for name in runnables}
 
         # Eligible set initialization
-        eligible: List[str] = []
+        eligible: Dict[str, Tuple[int, int]] = {}  # name -> (eta, iteration)
         for name, props in runnables.items():
             deps = props.get('deps', []) or []
             if props.get('type') == 'periodic' or len(deps) == 0:
-                eligible.append(name)
+                eligible[name] = (eta.get(name, 0), _k +
+                                  1)  # Current iteration
 
         # Idle cores
         if allocation_policy.lower() == 'static':
@@ -200,11 +221,12 @@ def run_main_scheduler(
         schedule_out: List[ScheduleEntry] = []
 
         while len(completed) < len(runnables):
-            # Order eligible
-            eligible = [
-                n for n in eligible if n not in completed and n not in running]
+            # Filter eligible: remove completed, running, and those not ready (eta > tau)
+            eligible = {
+                name: (eta_val, iteration) for name, (eta_val, iteration) in eligible.items() if name not in completed and name not in running
+            }
             ordered = _order_eligible(
-                eligible, runnables, eta, scheduling_policy)
+                list(eligible.keys()), runnables, eta, scheduling_policy)
 
             # Dynamic allocation if requested
             available_cores = idle_cores
@@ -233,6 +255,10 @@ def run_main_scheduler(
                         theta[(name, assigned_core)] = tau + T_i
                     start_i = tau
                     finish_i = tau + t_i
+                    # Add next activation time to eligible
+                    eta[name] = start_i + T_i
+                    # Next iteration for periodic runnables
+                    eligible[name] = (eta[name], _k + 2)
                 else:
                     # Try to find a core that satisfies strict periodicity guard for periodic; events always ok
                     for c in list(available_cores):
@@ -258,14 +284,29 @@ def run_main_scheduler(
             if not running:
                 # Nothing could be dispatched; advance time to next activation or break to avoid infinite loop
                 # Attempt to advance to the smallest eta among remaining eligible
-                if ordered:
-                    tau = min(int(eta.get(n, tau + 1)) for n in ordered)
+                if eligible:
+                    tau = min(eta_val for eta_val, _ in eligible.values())
                     continue
                 else:
                     break
 
             # Advance time to the next finish
-            tau = min(fin for fin, _ in running.values())
+            min_finish = min(fin for fin, _ in running.values())
+
+            # Get minimum activation time of periodic runnables in eligible set
+            periodic_eligible = [n for n in eligible.keys() if runnables.get(
+                n, {}).get('type') == 'periodic']
+            test = any(runnables.get(n, {}).get('type') !=
+                       'periodic' for n in running.keys())
+
+            # If eligible set contains only periodic runnables, consider their activation times
+            if len(periodic_eligible) == len(eligible) and len(eligible) > 0 and test:
+                # Get eta value from tuple
+                min_eligible = min(eligible[n][0] for n in periodic_eligible)
+                tau = max(min_finish, min_eligible)
+            else:
+                # If there are non-periodic runnables, just advance to next finish
+                tau = min_finish
 
             # Complete tasks finishing at tau
             just_finished = [n for n, (fin, _) in list(
@@ -286,7 +327,8 @@ def run_main_scheduler(
                         # Check if all preds of succ are completed
                         preds = runnables.get(succ, {}).get('deps', []) or []
                         if all(p in completed for p in preds):
-                            eligible.append(succ)
+                            # Current iteration
+                            eligible[succ] = (eta[succ], _k + 1)
 
         # Adjust start and finish times to be cumulative
         for entry in schedule_out:
@@ -294,8 +336,10 @@ def run_main_scheduler(
             entry.finish += cumulative_offset
 
         all_iterations.append(schedule_out)
-        makespans.append(tau)
-        cumulative_offset += tau  # Next iteration starts at the end of current iteration
+        # Makespan is the iteration period (since next iteration starts at this boundary)
+        makespans.append(iteration_period)
+        # Next iteration starts at iteration period boundary
+        cumulative_offset += iteration_period
 
     print(f"Makespan: {sum(makespans)}")
     print(f"All schedule entries:")
