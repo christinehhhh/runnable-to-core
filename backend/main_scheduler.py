@@ -240,9 +240,7 @@ def run_main_scheduler(
                     idle_cores, ordered)
 
             # Only consider current iteration runnables for dispatching
-            current_iteration_ordered = [
-                name for name in ordered if eligible[name][1] == _k + 1]
-            ready = current_iteration_ordered[:c_alloc] if c_alloc > 0 else []
+            ready = ordered[:c_alloc] if c_alloc > 0 else []
 
             # Dispatch ready
             for name in ready:
@@ -257,10 +255,13 @@ def run_main_scheduler(
 
                 # Select a core
                 assigned_core: Optional[int] = None
-                if props.get('type') == 'periodic' and int(eta.get(name, 0)) == tau and available_cores:
+                # TODO: <= tau ?
+                if props.get('type') == 'periodic' and int(eta.get(name, 0)) <= tau and available_cores:
                     assigned_core = min(available_cores)
                     available_cores.remove(assigned_core)
                     idle_cores.remove(assigned_core)
+                    if (name, assigned_core) in theta:
+                        theta.pop((name, assigned_core))
                     if T_i > 0:
                         theta[(name, assigned_core)] = tau + T_i
                     start_i = tau
@@ -272,16 +273,22 @@ def run_main_scheduler(
                 else:
                     # Try to find a core that satisfies strict periodicity guard for periodic; events always ok TODO: Seems to be strict periodicity not guaranteed here
                     for c in list(available_cores):
-                        safe = True
-                        if props.get('type') == 'periodic' and T_i > 0:
-                            next_act = theta.get((name, c), tau + T_i)
-                            safe = (tau + t_i) <= next_act
+                        next_act = next(iter(theta.values()))
+                        safe = (tau + t_i) <= next_act
                         if safe:
                             assigned_core = c
                             available_cores.remove(c)
                             idle_cores.remove(c)
                             start_i = tau
                             finish_i = tau + t_i
+                            break
+                        else:
+                            # Get first task name from (name, core) tuple
+                            first_theta_key = next(iter(theta.keys()))[0]
+                            eta[name] = next_act + \
+                                runnables[first_theta_key]['execution_time']
+                            eligible[name] = (eta[name], _k + 1)
+                            ready.remove(name)
                             break
                     # If none safe, skip dispatching this task in this round
                     if assigned_core is None:
