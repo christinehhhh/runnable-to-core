@@ -300,11 +300,9 @@ def run_main_scheduler(
             # Get minimum activation time of periodic runnables in eligible set
             periodic_eligible = [n for n in eligible.keys() if runnables.get(
                 n, {}).get('type') == 'periodic']
-            test = any(runnables.get(n, {}).get('type') !=
-                       'periodic' for n in running.keys())
 
             # If eligible set contains only periodic runnables, consider their activation times
-            if len(periodic_eligible) == len(eligible) and len(eligible) > 0 and test:
+            if len(periodic_eligible) == len(eligible) and len(eligible) > 0:
                 # Get eta value from tuple
                 min_eligible = min(eligible[n][0] for n in periodic_eligible)
                 tau = max(min_finish, min_eligible)
