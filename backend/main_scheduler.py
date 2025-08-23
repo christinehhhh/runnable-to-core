@@ -193,7 +193,6 @@ def run_main_scheduler(
     iteration_period = _calculate_iteration_period(runnables)
     print(f"Calculated iteration period: {iteration_period}ms")
 
-    # TODO: tau should not get reset to 0 every iteration
     tau = 0
 
     # Activation times (eta_i)
@@ -212,7 +211,6 @@ def run_main_scheduler(
         for name, props in runnables.items():
             deps = props.get('deps', []) or []
             if props.get('type') == 'periodic' or len(deps) == 0:
-                # TODO: eta.get(name, tau) ? / eta.get(name, eta))
                 eligible[name] = (eta.get(name, 0), _k +
                                   1)  # Current iteration
 
@@ -274,7 +272,7 @@ def run_main_scheduler(
                     # TODO: Can happen that within the same iteration, a periodic runnable is activated multiple times. Not necessarily + 2
                     eligible[name] = (eta[name], _k + 2)
                 else:
-                    # Try to find a core that satisfies strict periodicity guard for periodic; events always ok TODO: Seems to be strict periodicity not guaranteed here
+                    # Try to find a core that satisfies strict periodicity guard for periodic; events always ok
                     for c in list(available_cores):
                         next_act = next(iter(theta.values()))
                         safe = (tau + t_i) <= next_act
