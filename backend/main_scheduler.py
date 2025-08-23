@@ -237,8 +237,10 @@ def run_main_scheduler(
                 c_alloc, available_cores = _dynamic_allocation(
                     idle_cores, ordered)
 
-            # TODO: only consider ordered for current iteration runnables
-            ready = ordered[:c_alloc] if c_alloc > 0 else []
+            # Only consider current iteration runnables for dispatching
+            current_iteration_ordered = [
+                name for name in ordered if eligible[name][1] == _k + 1]
+            ready = current_iteration_ordered[:c_alloc] if c_alloc > 0 else []
 
             # Dispatch ready
             for name in ready:
@@ -266,7 +268,7 @@ def run_main_scheduler(
                     # Next iteration for periodic runnables
                     eligible[name] = (eta[name], _k + 2)
                 else:
-                    # Try to find a core that satisfies strict periodicity guard for periodic; events always ok
+                    # Try to find a core that satisfies strict periodicity guard for periodic; events always ok TODO: Seems to be strict periodicity not guaranteed here
                     for c in list(available_cores):
                         safe = True
                         if props.get('type') == 'periodic' and T_i > 0:
