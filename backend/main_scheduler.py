@@ -224,6 +224,7 @@ def run_main_scheduler(
 
         while len(completed) < len(runnables):
             # Filter eligible: remove completed, running, and those not ready (eta > tau)
+            # TODO: do not exclude eligible that are not in the current iteration
             eligible = {
                 name: (eta_val, iteration) for name, (eta_val, iteration) in eligible.items() if name not in completed and name not in running
             }
@@ -303,9 +304,20 @@ def run_main_scheduler(
 
             # If eligible set contains only periodic runnables, consider their activation times
             if len(periodic_eligible) == len(eligible) and len(eligible) > 0:
-                # Get eta value from tuple
-                min_eligible = min(eligible[n][0] for n in periodic_eligible)
-                tau = max(min_finish, min_eligible)
+                # Find the periodic runnable with minimum eta
+                min_eta_runnable = min(
+                    periodic_eligible, key=lambda n: eligible[n][0])
+                min_eta_iteration = eligible[min_eta_runnable][1]
+
+                # Only consider periodic activation times if the min eta runnable has same iteration
+                if min_eta_iteration == _k + 1:
+                    # Get eta value from tuple
+                    min_eligible = min(eligible[n][0]
+                                       for n in periodic_eligible)
+                    tau = max(min_finish, min_eligible)
+                else:
+                    # If min eta runnable is from different iteration, just advance to next finish
+                    tau = min_finish
             else:
                 # If there are non-periodic runnables, just advance to next finish
                 tau = min_finish
