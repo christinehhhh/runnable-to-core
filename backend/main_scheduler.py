@@ -486,9 +486,9 @@ runnables = {
 }
 
 # Run the main scheduler with specified parameters
-num_cores = 6
+num_cores = 1
 iterations = 6
-scheduling_policy = "pas"
+scheduling_policy = "fcfs"
 allocation_policy = "dynamic"
 
 print(f"Running main scheduler with:")
