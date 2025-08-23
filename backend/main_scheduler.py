@@ -194,6 +194,7 @@ def run_main_scheduler(
     print(f"Calculated iteration period: {iteration_period}ms")
 
     for _k in range(max(1, iterations)):
+        # TODO: tau should not get reset to 0 every iteration
         tau = 0
         completed: Set[str] = set()
         running: Dict[str, Tuple[int, int]] = {}  # name -> (finish, core)
@@ -209,6 +210,7 @@ def run_main_scheduler(
         for name, props in runnables.items():
             deps = props.get('deps', []) or []
             if props.get('type') == 'periodic' or len(deps) == 0:
+                # TODO: eta.get(name, tau) ? / eta.get(name, eta))
                 eligible[name] = (eta.get(name, 0), _k +
                                   1)  # Current iteration
 
@@ -244,6 +246,8 @@ def run_main_scheduler(
                 t_i = int(props.get('execution_time', 0))
                 T_i = int(props.get('period', 0)) if props.get(
                     'type') == 'periodic' else 0
+
+                eligible.pop(name)
 
                 # Select a core
                 assigned_core: Optional[int] = None
