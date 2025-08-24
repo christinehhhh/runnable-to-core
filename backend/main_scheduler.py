@@ -65,6 +65,7 @@ def order_eligible(eligible: List[str], runnables: Dict[str, Dict], eta: Dict[st
     return sorted(eligible, key=lambda n: (int(eta.get(n, 0)), n))
 
 
+# TODO: Update static allocation
 def static_allocation(num_cores: int, p_max: int, p_avg: int) -> Tuple[int, List[int]]:
     c_alloc = max(1, min(num_cores, max(1, p_max), max(1, p_avg)))
     return list(range(c_alloc))  # lowest indices
