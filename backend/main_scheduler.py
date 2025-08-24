@@ -223,6 +223,9 @@ def run_main_scheduler(
             running[(n, t)] = (finish, assigned_core)
             schedule.append(ScheduleEntry(
                 n, start, finish, assigned_core, eligible_time=t))
+            # TODO: Remove debug line
+            print(ScheduleEntry(
+                n, start, finish, assigned_core, eligible_time=t))
             T_i = int(runnables[n].get("period", 0))
             next_active = t + T_i
             if T_i > 0 and next_active < T_end:
@@ -270,6 +273,8 @@ def run_main_scheduler(
                     idle_cores.remove(core)
                 running[(name, tau)] = (tau + t_i, core)
                 schedule.append(ScheduleEntry(
+                    name, tau, tau + t_i, core, eligible_time=tau))
+                print(ScheduleEntry(
                     name, tau, tau + t_i, core, eligible_time=tau))
                 for p in predecessors[name]:
                     tokens[(p, name)] -= 1
