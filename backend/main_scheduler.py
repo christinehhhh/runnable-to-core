@@ -234,7 +234,7 @@ def run_main_scheduler(
         # Admit periodic jobs released at tau
         eligible_event = get_event_at_tau(tau)
 
-        if len(eligible_event) == 0:
+        if len(eligible_event) == 0 and len(idle_cores) <= 1:
             tau = next_active
 
         periodic_at_tau = get_periodic_at_tau(tau)
@@ -413,7 +413,7 @@ runnables = {
 
 # Re-run
 schedule_dyn, finish_dyn = run_main_scheduler(
-    runnables, num_cores=1, scheduling_policy="fcfs", allocation_policy="dynamic", T_end=None)
+    runnables, num_cores=6, scheduling_policy="fcfs", allocation_policy="dynamic", T_end=None)
 schedule_static, finish_static = run_main_scheduler(
     runnables, num_cores=4, scheduling_policy="fcfs", allocation_policy="static", T_end=None)
 
