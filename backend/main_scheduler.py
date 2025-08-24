@@ -198,7 +198,7 @@ def run_main_scheduler(
     def run_periodic_now(t: int, periodic: List[str], available_cores: List[int]) -> None:
         if not periodic:
             return
-        for n in sorted(periodic):
+        for n in periodic:
             if not available_cores:
                 continue
             assigned_core = min(available_cores)
@@ -221,15 +221,18 @@ def run_main_scheduler(
         # Admit periodic jobs released at tau
         periodic_at_tau = get_periodic_at_tau(tau)
 
+        ordered_periodic = order_eligible(periodic_at_tau, runnables, {
+                                          e: tau for e in periodic_at_tau}, scheduling_policy)
+
         eligible_event = order_eligible(get_eligible_event(), runnables, {
             e: tau for e in get_eligible_event()}, scheduling_policy)
 
-        eligible = periodic_at_tau + eligible_event
+        eligible = ordered_periodic + eligible_event
 
         if allocation_policy.lower() == 'dynamic':
             available_cores = dynamic_allocation(idle_cores, eligible)
 
-        run_periodic_now(tau, periodic_at_tau, available_cores)
+        run_periodic_now(tau, ordered_periodic, available_cores)
 
         sorted_available_cores = list(sorted(available_cores))
         for name in eligible_event:
