@@ -200,6 +200,12 @@ def run_main_scheduler(
             return
         for n in periodic:
             if not available_cores:
+                if running:
+                    tx = min(finish for finish, _ in running.values()) - t
+                else:
+                    tx = 0
+                start = t + tx
+                theta[n] = start
                 continue
             assigned_core = min(available_cores)
             available_cores.remove(assigned_core)
@@ -233,6 +239,8 @@ def run_main_scheduler(
             available_cores = dynamic_allocation(idle_cores, eligible)
 
         run_periodic_now(tau, ordered_periodic, available_cores)
+
+        # TODO: Safety Guard
 
         sorted_available_cores = list(sorted(available_cores))
         for name in eligible_event:
