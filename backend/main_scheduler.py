@@ -67,24 +67,12 @@ def order_eligible(eligible: List[str], runnables: Dict[str, Dict], eta: Dict[st
 
 def static_allocation(num_cores: int, p_max: int, p_avg: int) -> Tuple[int, List[int]]:
     c_alloc = max(1, min(num_cores, max(1, p_max), max(1, p_avg)))
-    return c_alloc, list(range(c_alloc))  # lowest indices
+    return list(range(c_alloc))  # lowest indices
 
 
-def dynamic_allocation(idle_cores: List[int], demand: int, C: int, current_active: int) -> Tuple[int, List[int], int]:
-    """
-    Allocate up to 'demand' cores by activating new cores if needed.
-    Returns (C_alloc, available_cores_list, new_active_count).
-    """
-    # TODO: Check this code
-    # Already idle cores among the active set
-    avail = list(sorted(idle_cores))
-    missing = max(0, demand - len(avail))
-    can_add = max(0, C - current_active)
-    add = min(missing, can_add)
-    # Activate additional cores with new indices [current_active, current_active+add-1]
-    new_cores = list(range(current_active, current_active + add))
-    avail.extend(new_cores)
-    return min(demand, len(avail)), avail[:demand], current_active + add
+def dynamic_allocation(idle_cores: List[int], eligible: List[str]) -> Tuple[int, List[int]]:
+    c_alloc = min(len(idle_cores), len(eligible))
+    return idle_cores[:c_alloc]
 
 
 def compute_parallelism_bounds(runnables: Dict[str, Dict]) -> Tuple[int, int, int]:
@@ -181,19 +169,12 @@ def run_main_scheduler(
     W, T_CP, p_max = compute_parallelism_bounds(runnables)
     p_avg = max(1, W // max(1, T_CP))
 
-    # if allocation_policy.lower() == 'static':
-    #     c_alloc, idle_cores = static_allocation(num_cores, p_max, p_avg)
-    # else:
-    #     c_alloc, idle_cores = 0, list(range(num_cores))
-
-    # TODO: Update core assignment logic
-
     if allocation_policy.lower() == "static":
-        c_alloc, idle_cores = static_allocation(num_cores, p_max, p_avg)
-        active_cores = c_alloc
+        available_cores = static_allocation(num_cores, p_max, p_avg)
     else:
-        active_cores = min(1, num_cores)
-        idle_cores = list(range(active_cores))
+        available_cores = list(range(num_cores))
+
+    idle_cores = list(range(num_cores))
 
     tau = 0
     theta: Dict[str, int] = {}
@@ -213,29 +194,21 @@ def run_main_scheduler(
         return [n for n, props in runnables.items() if props.get("type") != "periodic"
                 and all(tokens[(p, n)] > 0 for p in predecessors[n])]
 
-    def run_periodic_now(t: int, periodic: List[str]) -> None:
-        nonlocal idle_cores, active_cores
+    def run_periodic_now(t: int, periodic: List[str], available_cores: List[int]) -> None:
         if not periodic:
             return
-        if allocation_policy.lower() == "dynamic":
-            need = len(periodic) - len(idle_cores)
-            if need > 0 and active_cores < num_cores:
-                add = min(need, num_cores - active_cores)
-                new_ids = list(range(active_cores, active_cores + add))
-                idle_cores.extend(new_ids)
-                active_cores += add
-            idle_cores = sorted(idle_cores)
         for n in sorted(periodic):
-            if not idle_cores:
-                # cannot admit now (static limit); will try after a finish
+            if not available_cores:
                 continue
-            c = idle_cores.pop(0)
+            assigned_core = min(available_cores)
+            available_cores.remove(assigned_core)
+            idle_cores.remove(assigned_core)
             t_i = int(runnables[n]["execution_time"])
             start = t
             finish = t + t_i
-            running[(n, t)] = (finish, c)
+            running[(n, t)] = (finish, assigned_core)
             schedule.append(ScheduleEntry(
-                n, start, finish, c, eligible_time=t))
+                n, start, finish, assigned_core, eligible_time=t))
             T_i = int(runnables[n].get("period", 0))
             next_active = t + T_i
             if T_i > 0 and next_active < T_end:
@@ -245,22 +218,30 @@ def run_main_scheduler(
 
     while tau < T_end or running:
         # Admit periodic jobs released at tau
-        run_periodic_now(tau, get_periodic_at_tau(tau))
+        periodic_at_tau = get_periodic_at_tau(tau)
 
-        # Dispatch events with remaining idle cores
         eligible_event = order_eligible(get_eligible_event(), runnables, {
             e: tau for e in get_eligible_event()}, scheduling_policy)
-        sorted_idle_cores = list(sorted(idle_cores))
+
+        eligible = periodic_at_tau + eligible_event
+
+        if allocation_policy.lower() == 'dynamic':
+            available_cores = dynamic_allocation(idle_cores, eligible)
+
+        run_periodic_now(tau, periodic_at_tau, available_cores)
+
+        sorted_available_cores = list(sorted(available_cores))
         for name in eligible_event:
-            if not sorted_idle_cores:  # TODO: C_alloc or sorted_idle_cores
+            if not sorted_available_cores:
                 break
-            c = sorted_idle_cores.pop(0)
-            if c in idle_cores:
-                idle_cores.remove(c)
+            core = sorted_available_cores.pop(0)
+            if core in available_cores:
+                available_cores.remove(core)
+                idle_cores.remove(core)
             t_i = int(runnables[name]["execution_time"])
-            running[(name, tau)] = (tau + t_i, c)
+            running[(name, tau)] = (tau + t_i, core)
             schedule.append(ScheduleEntry(
-                name, tau, tau + t_i, c, eligible_time=tau))
+                name, tau, tau + t_i, core, eligible_time=tau))
             for p in predecessors[name]:
                 tokens[(p, name)] -= 1
 
@@ -277,7 +258,7 @@ def run_main_scheduler(
         for (name, eligible_time), (finish_time, core) in list(running.items()):
             if finish_time == tau_next:
                 running.pop((name, eligible_time))
-                if core not in idle_cores:  # TODO: IdleCores should have all the cores
+                if core not in idle_cores:
                     idle_cores.append(core)
                     idle_cores.sort()
                 for s in successors[name]:
