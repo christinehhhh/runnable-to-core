@@ -186,6 +186,8 @@ def run_main_scheduler(
     # else:
     #     c_alloc, idle_cores = 0, list(range(num_cores))
 
+    # TODO: Update core assignment logic
+
     if allocation_policy.lower() == "static":
         c_alloc, idle_cores = static_allocation(num_cores, p_max, p_avg)
         active_cores = c_alloc
@@ -194,21 +196,22 @@ def run_main_scheduler(
         idle_cores = list(range(active_cores))
 
     tau = 0
-    eta: Dict[str, int] = {}
+    theta: Dict[str, int] = {}
     running: Dict[Tuple[str, int], Tuple[int, int]] = {}
     schedule: List[ScheduleEntry] = []
     for name, props in runnables.items():
         if props.get("type") == "periodic" and int(props.get("period", 0)) > 0:
-            eta[name] = 0
+            theta[name] = 0
 
     tokens: Dict[Tuple[str, str], int] = {
         (p, n): 0 for n in runnables for p in predecessors[n]}
 
-    def new_periodic_at_tau(t: int) -> List[str]:
-        return sorted([n for n in eta if eta[n] == t])
+    def get_periodic_at_tau(t: int) -> List[str]:
+        return sorted([n for n in theta if theta[n] == t])
 
-    def event_eligible() -> List[str]:
-        return [n for n, props in runnables.items() if props.get("type") != "periodic" and all(tokens[(p, n)] > 0 for p in predecessors[n])]
+    def get_eligible_event() -> List[str]:
+        return [n for n, props in runnables.items() if props.get("type") != "periodic"
+                and all(tokens[(p, n)] > 0 for p in predecessors[n])]
 
     def run_periodic_now(t: int, periodic: List[str]) -> None:
         nonlocal idle_cores, active_cores
@@ -234,21 +237,21 @@ def run_main_scheduler(
             schedule.append(ScheduleEntry(
                 n, start, finish, c, eligible_time=t))
             T_i = int(runnables[n].get("period", 0))
-            next_eta = t + T_i
-            if T_i > 0 and next_eta < T_end:
-                eta[n] = next_eta  # TODO: eta => theta ?
+            next_active = t + T_i
+            if T_i > 0 and next_active < T_end:
+                theta[n] = next_active
             else:
-                eta.pop(n, None)
+                theta.pop(n, None)
 
     while tau < T_end or running:
         # Admit periodic jobs released at tau
-        run_periodic_now(tau, new_periodic_at_tau(tau))
+        run_periodic_now(tau, get_periodic_at_tau(tau))
 
-        # Dispatch events with remaining idle cores TODO: ev_ready => eligible_event
-        ev_ready = order_eligible(event_eligible(), runnables, {
-                                  e: tau for e in event_eligible()}, scheduling_policy)
+        # Dispatch events with remaining idle cores
+        eligible_event = order_eligible(get_eligible_event(), runnables, {
+            e: tau for e in get_eligible_event()}, scheduling_policy)
         sorted_idle_cores = list(sorted(idle_cores))
-        for name in ev_ready:
+        for name in eligible_event:
             if not sorted_idle_cores:  # TODO: C_alloc or sorted_idle_cores
                 break
             c = sorted_idle_cores.pop(0)
@@ -263,7 +266,7 @@ def run_main_scheduler(
 
         next_fin = min((fin for (fin, _) in running.values()), default=None)
         # strictly greater than tau
-        next_active = min((t for t in eta.values() if t > tau), default=None)
+        next_active = min((t for t in theta.values() if t > tau), default=None)
         next_decision_point = [t for t in [
             next_fin, next_active] if t is not None]
         if not next_decision_point:
@@ -393,6 +396,8 @@ runnables = {
         'deps': ['LaneDepartureWarning', 'SteeringAngleCalculation'],
     },
 }
+
+# TODO: Single core, less than hyperperiod
 
 # Re-run
 schedule_dyn, finish_dyn = run_main_scheduler(
