@@ -227,23 +227,25 @@ def run_main_scheduler(
         # Admit periodic jobs released at tau
         periodic_at_tau = get_periodic_at_tau(tau)
 
-        ordered_periodic = order_eligible(periodic_at_tau, runnables, {
-                                          e: tau for e in periodic_at_tau}, scheduling_policy)
+        ordered_eligible_periodic = order_eligible(periodic_at_tau, runnables, {
+            e: tau for e in periodic_at_tau}, scheduling_policy)
 
-        eligible_event = order_eligible(get_eligible_event(), runnables, {
-            e: tau for e in get_eligible_event()}, scheduling_policy)
+        eligible_event = get_eligible_event()
 
-        eligible = ordered_periodic + eligible_event
+        ordered_eligible_event = order_eligible(eligible_event, runnables, {
+            e: tau for e in eligible_event}, scheduling_policy)
+
+        eligible = ordered_eligible_periodic + ordered_eligible_event
 
         if allocation_policy.lower() == 'dynamic':
             available_cores = dynamic_allocation(idle_cores, eligible)
 
-        run_periodic_now(tau, ordered_periodic, available_cores)
+        run_periodic_now(tau, ordered_eligible_periodic, available_cores)
 
         # TODO: Safety Guard
 
         sorted_available_cores = list(sorted(available_cores))
-        for name in eligible_event:
+        for name in ordered_eligible_event:
             if not sorted_available_cores:
                 break
             core = sorted_available_cores.pop(0)
@@ -394,7 +396,7 @@ runnables = {
 
 # Re-run
 schedule_dyn, finish_dyn = run_main_scheduler(
-    runnables, num_cores=4, scheduling_policy="pas", allocation_policy="dynamic", T_end=None)
+    runnables, num_cores=1, scheduling_policy="fcfs", allocation_policy="dynamic", T_end=None)
 schedule_static, finish_static = run_main_scheduler(
     runnables, num_cores=4, scheduling_policy="fcfs", allocation_policy="static", T_end=None)
 
