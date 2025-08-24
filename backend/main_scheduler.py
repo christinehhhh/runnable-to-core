@@ -16,118 +16,129 @@ finite DAG-style schedule. Periodic runnables behave as sources with eta_i = 0.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, Tuple
+from math import gcd
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-import numpy as np
 
 
 @dataclass
 class ScheduleEntry:
     runnable: str
-    start: int
-    finish: int
+    start_time: int
+    finish_time: int
     core: int
+    eligible_time: int
 
 
-def _topology(runnables: Dict[str, Dict]) -> Tuple[Dict[str, List[str]], Dict[str, int]]:
+def lcm(a: int, b: int) -> int:
+    return a * b // gcd(a, b) if a and b else max(a, b)
+
+
+def lcm_list(vals: Iterable[int]) -> int:
+    out = 1
+    for v in vals:
+        out = lcm(out, v)
+    return max(out, 1)
+
+
+def topology(runnables: Dict[str, Dict]) -> Tuple[Dict[str, List[str]], Dict[str, List[str]]]:
     successors: Dict[str, List[str]] = {name: [] for name in runnables}
-    dependency_count: Dict[str, int] = {name: 0 for name in runnables}
+    predecessors: Dict[str, List[str]] = {name: [] for name in runnables}
     for name, props in runnables.items():
-        for dep in props.get('deps', []) or []:
-            if dep not in successors:
-                continue
-            successors[dep].append(name)
-            dependency_count[name] += 1
-    return successors, dependency_count
+        for dep in props.get("deps", []) or []:
+            if dep in runnables:
+                successors[dep].append(name)
+                predecessors[name].append(dep)
+    return successors, predecessors
 
 
-def _order_eligible(eligible: List[str], runnables: Dict[str, Dict], eta: Dict[str, int], policy: str) -> List[str]:
-    if policy.lower() == 'pas':
-        # Higher p_i first, then lower eta, then name
+def order_eligible(eligible: List[str], runnables: Dict[str, Dict], eta: Dict[str, int], policy: str) -> List[str]:
+    policy = policy.lower()
+    if policy == "pas":
         def key_fn(name: str):
-            p_i = int(runnables.get(name, {}).get('criticality', 0))
+            p_i = int(runnables[name].get("criticality", 0))
             return (-p_i, int(eta.get(name, 0)), name)
         return sorted(eligible, key=key_fn)
-    # FCFS: order by (eta_i, id)
+    # fcfs
     return sorted(eligible, key=lambda n: (int(eta.get(n, 0)), n))
 
 
-def _static_allocation(num_cores: int, p_max: int, p_avg: int) -> Tuple[int, List[int]]:
-    c_alloc = min(num_cores, max(0, p_max), max(0, p_avg))
-    idle = list(range(c_alloc))
-    return c_alloc, idle
+def static_allocation(num_cores: int, p_max: int, p_avg: int) -> Tuple[int, List[int]]:
+    c_alloc = max(1, min(num_cores, max(1, p_max), max(1, p_avg)))
+    return c_alloc, list(range(c_alloc))  # lowest indices
 
 
-def _dynamic_allocation(idle_cores: List[int], eligible: List[str]) -> Tuple[int, List[int]]:
-    alloc = min(len(idle_cores), len(eligible))
-    return alloc, idle_cores[:alloc]
-
-
-def _calculate_iteration_period(runnables: Dict[str, Dict]) -> int:
-    """Calculate the minimum period for iteration boundaries."""
-    periods = []
-    for name, props in runnables.items():
-        if props.get('type') == 'periodic':
-            period = props.get('period', 0)
-            if period > 0:
-                periods.append(period)
-
-    if not periods:
-        return 1  # Default if no periodic runnables
-
-    # Return the minimum period (most frequent activation)
-    return min(periods)
-
-
-def run_main_scheduler(
-    runnables: Dict[str, Dict],
-    num_cores: int,
-    scheduling_policy: str = 'fcfs',
-    allocation_policy: str = 'dynamic',
-    iterations: int = 1,
-) -> Tuple[List[List[ScheduleEntry]], List[int]]:
-    """Execute the main scheduling algorithm for a finite DAG per iteration.
-
-    Returns a tuple (all_schedules, makespans):
-    - all_schedules: list per iteration of ScheduleEntry list
-    - makespans: list of iteration total times
+def dynamic_allocation(idle_cores: List[int], demand: int, C: int, current_active: int) -> Tuple[int, List[int], int]:
     """
+    Allocate up to 'demand' cores by activating new cores if needed.
+    Returns (C_alloc, available_cores_list, new_active_count).
+    """
+    # TODO: Check this code
+    # Already idle cores among the active set
+    avail = list(sorted(idle_cores))
+    missing = max(0, demand - len(avail))
+    can_add = max(0, C - current_active)
+    add = min(missing, can_add)
+    # Activate additional cores with new indices [current_active, current_active+add-1]
+    new_cores = list(range(current_active, current_active + add))
+    avail.extend(new_cores)
+    return min(demand, len(avail)), avail[:demand], current_active + add
 
-    successors, dependency_count = _topology(runnables)
 
-    # Calculate maximum parallelism by simulating the execution
-    def calculate_max_parallelism():
+def compute_parallelism_bounds(runnables: Dict[str, Dict]) -> Tuple[int, int, int]:
+    """Compute (W, T_CP, P_max_approx). Uses a relaxed approximation for P_max: number of sources."""
+    successors, predecessors = topology(runnables)
+    # Total work W (one instance per node baseline)
+    W = sum(int(props.get("execution_time", 0))
+            for props in runnables.values())
+    # Critical path via longest path DP on DAG of single-shot graph
+    # (For periodic tasks, treat as sources with EST=0)
+    runnable_path_length: Dict[str, int] = {}
+    remaining_runnables = set(runnables.keys())
+    while remaining_runnables:
+        progressed = False
+        for name in list(remaining_runnables):
+            if all(p in runnable_path_length for p in predecessors[name]):
+                runnable_path_length[name] = max((runnable_path_length[p] + int(runnables[p]["execution_time"])
+                                                  for p in predecessors[name]), default=0)
+                remaining_runnables.remove(name)
+                progressed = True
+        if not progressed:
+            # Cycles (shouldn't happen in a DAG); break conservatively
+            break
+    T_CP = max((runnable_path_length[n] + int(runnables[n]["execution_time"])
+               for n in runnable_path_length), default=0)
+    # Approx P_max: max number of simultaneously ready sources after releases -> count of nodes with no preds
+
+    def calculate_max_parallelism() -> int:
         """Calculate P_max by finding the maximum number of eligible runnables at any time."""
         max_parallelism = 0
         completed = set()
         eligible = set()
 
-        # Initialize eligible set with tasks that have no dependencies
+        # Initially eligible: tasks with no dependencies or periodic sources
         for name, props in runnables.items():
-            deps = props.get('deps', []) or []
-            if props.get('type') == 'periodic' or len(deps) == 0:
+            deps = props.get("deps", []) or []
+            if props.get("type") == "periodic" or len(deps) == 0:
                 eligible.add(name)
 
         max_parallelism = max(max_parallelism, len(eligible))
 
-        # Simulate execution to find maximum parallelism
         while eligible:
-            # Execute all eligible tasks simultaneously (since we have unlimited cores)
+            # Execute all eligible tasks simultaneously (unlimited cores)
             tasks_to_execute = list(eligible)
-            for task in tasks_to_execute:
-                eligible.remove(task)
-                completed.add(task)
+            eligible.clear()
+            completed.update(tasks_to_execute)
 
-            # Add newly eligible tasks after all current tasks complete
+            # Find new eligible tasks
             newly_eligible = set()
             for task in tasks_to_execute:
                 for succ in successors.get(task, []):
                     if succ in completed or succ in newly_eligible:
                         continue
-                    # Check if all dependencies are completed
-                    preds = runnables.get(succ, {}).get('deps', []) or []
+                    preds = runnables.get(succ, {}).get("deps", []) or []
                     if all(p in completed for p in preds):
                         newly_eligible.add(succ)
 
@@ -137,243 +148,156 @@ def run_main_scheduler(
         return max_parallelism
 
     p_max = max(1, calculate_max_parallelism())
+    return W, T_CP, max(1, p_max)
 
-    # Calculate average parallelism: P_avg = floor(W / T_CP)
-    def calculate_critical_path_length():
-        """Calculate T_CP by finding the longest path from any source to any sink."""
-        # Calculate earliest start times for all tasks
-        earliest_start = {}
+# Patch: ensure next_rel considers only releases strictly after current tau to avoid stalling
+# Re-run the two scenarios
 
-        # Initialize with tasks that have no dependencies
-        for name, props in runnables.items():
-            deps = props.get('deps', []) or []
-            if props.get('type') == 'periodic' or len(deps) == 0:
-                earliest_start[name] = 0
+# (Reusing the functions and data already defined above)
 
-        # Process tasks in topological order
-        processed = set()
-        while len(processed) < len(runnables):
-            for name, props in runnables.items():
-                if name in processed:
-                    continue
 
-                deps = props.get('deps', []) or []
-                if all(dep in earliest_start for dep in deps):
-                    # All dependencies have been processed
-                    max_pred_finish = 0
-                    for dep in deps:
-                        dep_finish = earliest_start[dep] + \
-                            runnables[dep]['execution_time']
-                        max_pred_finish = max(max_pred_finish, dep_finish)
+def run_main_scheduler(
+    runnables: Dict[str, Dict],
+    num_cores: int,
+    scheduling_policy: str = "fcfs",
+    allocation_policy: str = "dynamic",
+    T_end: Optional[int] = None,
+) -> Tuple[List[ScheduleEntry], int]:
+    """Execute the main scheduling algorithm for a finite DAG per iteration.
 
-                    earliest_start[name] = max_pred_finish
-                    processed.add(name)
+    Returns a tuple (all_schedules, makespans):
+    - all_schedules: list per iteration of ScheduleEntry list
+    - makespans: list of iteration total times
+    """
 
-        # Find the maximum finish time (critical path length)
-        max_finish = 0
-        for name, props in runnables.items():
-            finish_time = earliest_start[name] + props['execution_time']
-            max_finish = max(max_finish, finish_time)
+    successors, predecessors = topology(runnables)
 
-        return max_finish
+    periods = [int(props.get("period", 0)) for props in runnables.values(
+    ) if props.get("type") == "periodic" and int(props.get("period", 0)) > 0]
+    hyperperiod = lcm_list(periods) if periods else 1
+    if T_end is None:
+        T_end = hyperperiod
 
-    def calculate_total_work():
-        """Calculate W = sum of all execution times."""
-        return sum(props['execution_time'] for props in runnables.values())
+    W, T_CP, p_max = compute_parallelism_bounds(runnables)
+    p_avg = max(1, W // max(1, T_CP))
 
-    T_CP = calculate_critical_path_length()
-    W = calculate_total_work()
-    p_avg = max(1, W // T_CP)  # floor division
+    # if allocation_policy.lower() == 'static':
+    #     c_alloc, idle_cores = static_allocation(num_cores, p_max, p_avg)
+    # else:
+    #     c_alloc, idle_cores = 0, list(range(num_cores))
 
-    all_iterations: List[List[ScheduleEntry]] = []
-    makespans: List[int] = []
-    cumulative_offset = 0
-
-    # Calculate iteration period (minimum period) for iteration boundaries
-    iteration_period = _calculate_iteration_period(runnables)
-    print(f"Calculated iteration period: {iteration_period}ms")
+    if allocation_policy.lower() == "static":
+        c_alloc, idle_cores = static_allocation(num_cores, p_max, p_avg)
+        active_cores = c_alloc
+    else:
+        active_cores = min(1, num_cores)
+        idle_cores = list(range(active_cores))
 
     tau = 0
+    eta: Dict[str, int] = {}
+    running: Dict[Tuple[str, int], Tuple[int, int]] = {}
+    schedule: List[ScheduleEntry] = []
+    for name, props in runnables.items():
+        if props.get("type") == "periodic" and int(props.get("period", 0)) > 0:
+            eta[name] = 0
 
-    # Activation times (eta_i)
-    eta: Dict[str, int] = {name: 0 for name in runnables}
+    tokens: Dict[Tuple[str, str], int] = {
+        (p, n): 0 for n in runnables for p in predecessors[n]}
 
-    # Eligible set initialization
-    eligible: Dict[str, Tuple[int, int]] = {}  # name -> (eta, iteration)
+    def new_periodic_at_tau(t: int) -> List[str]:
+        return sorted([n for n in eta if eta[n] == t])
 
-    for _k in range(max(1, iterations)):
-        completed: Set[str] = set()
-        running: Dict[str, Tuple[int, int]] = {}  # name -> (finish, core)
+    def event_eligible() -> List[str]:
+        return [n for n, props in runnables.items() if props.get("type") != "periodic" and all(tokens[(p, n)] > 0 for p in predecessors[n])]
 
-        # Per-core next activation time for periodic tasks
-        theta: Dict[Tuple[str, int], int] = {}
+    def run_periodic_now(t: int, periodic: List[str]) -> None:
+        nonlocal idle_cores, active_cores
+        if not periodic:
+            return
+        if allocation_policy.lower() == "dynamic":
+            need = len(periodic) - len(idle_cores)
+            if need > 0 and active_cores < num_cores:
+                add = min(need, num_cores - active_cores)
+                new_ids = list(range(active_cores, active_cores + add))
+                idle_cores.extend(new_ids)
+                active_cores += add
+            idle_cores = sorted(idle_cores)
+        for n in sorted(periodic):
+            if not idle_cores:
+                # cannot admit now (static limit); will try after a finish
+                continue
+            c = idle_cores.pop(0)
+            t_i = int(runnables[n]["execution_time"])
+            start = t
+            finish = t + t_i
+            running[(n, t)] = (finish, c)
+            schedule.append(ScheduleEntry(
+                n, start, finish, c, eligible_time=t))
+            T_i = int(runnables[n].get("period", 0))
+            next_eta = t + T_i
+            if T_i > 0 and next_eta < T_end:
+                eta[n] = next_eta  # TODO: eta => theta ?
+            else:
+                eta.pop(n, None)
 
-        for name, props in runnables.items():
-            deps = props.get('deps', []) or []
-            if props.get('type') == 'periodic' or len(deps) == 0:
-                eligible[name] = (eta.get(name, 0), _k +
-                                  1)  # Current iteration
+    while tau < T_end or running:
+        # Admit periodic jobs released at tau
+        run_periodic_now(tau, new_periodic_at_tau(tau))
 
-        # Idle cores
-        if allocation_policy.lower() == 'static':
-            c_alloc, idle_cores = _static_allocation(num_cores, p_max, p_avg)
-        else:
-            c_alloc, idle_cores = 0, list(range(num_cores))
+        # Dispatch events with remaining idle cores TODO: ev_ready => eligible_event
+        ev_ready = order_eligible(event_eligible(), runnables, {
+                                  e: tau for e in event_eligible()}, scheduling_policy)
+        sorted_idle_cores = list(sorted(idle_cores))
+        for name in ev_ready:
+            if not sorted_idle_cores:  # TODO: C_alloc or sorted_idle_cores
+                break
+            c = sorted_idle_cores.pop(0)
+            if c in idle_cores:
+                idle_cores.remove(c)
+            t_i = int(runnables[name]["execution_time"])
+            running[(name, tau)] = (tau + t_i, c)
+            schedule.append(ScheduleEntry(
+                name, tau, tau + t_i, c, eligible_time=tau))
+            for p in predecessors[name]:
+                tokens[(p, name)] -= 1
 
-        schedule_out: List[ScheduleEntry] = []
+        next_fin = min((fin for (fin, _) in running.values()), default=None)
+        # strictly greater than tau
+        next_active = min((t for t in eta.values() if t > tau), default=None)
+        next_decision_point = [t for t in [
+            next_fin, next_active] if t is not None]
+        if not next_decision_point:
+            break
+        tau_next = min(next_decision_point)
 
-        while len(completed) < len(runnables):
-            # Filter eligible: remove completed/running only for current iteration runnables
-            eligible = {
-                name: (eta_val, iteration) for name, (eta_val, iteration) in eligible.items()
-                if (iteration == _k + 1 and name not in completed and name not in running) or (iteration != _k + 1)
-            }
-            ordered = _order_eligible(
-                list(eligible), runnables, eta, scheduling_policy)
-
-            # Dynamic allocation if requested
-            available_cores = idle_cores
-            if allocation_policy.lower() == 'dynamic':
-                c_alloc, available_cores = _dynamic_allocation(
-                    idle_cores, ordered)
-
-            # Only consider current iteration runnables for dispatching
-            ready = ordered[:c_alloc] if c_alloc > 0 else []
-
-            # Dispatch ready
-            for name in ready:
-                if name in running:
-                    continue
-                props = runnables[name]
-                t_i = int(props.get('execution_time', 0))
-                T_i = int(props.get('period', 0)) if props.get(
-                    'type') == 'periodic' else 0
-
-                eligible.pop(name)
-
-                # Select a core
-                assigned_core: Optional[int] = None
-                if props.get('type') == 'periodic' and tau < int(eta.get(name, 0)):
-                    tau = int(eta.get(name, 0))
-
-                if props.get('type') == 'periodic' and available_cores:
-                    assigned_core = min(available_cores)
-                    available_cores.remove(assigned_core)
-                    idle_cores.remove(assigned_core)
-                    if (name, assigned_core) in theta:
-                        theta.pop((name, assigned_core))
-                    if T_i > 0:
-                        theta[(name, assigned_core)] = tau + T_i
-                    start_i = tau
-                    finish_i = tau + t_i
-                    # Add next activation time to eligible
-                    eta[name] = start_i + T_i
-                    # Next iteration for periodic runnables
-                    # TODO: Can happen that within the same iteration, a periodic runnable is activated multiple times. Not necessarily + 2
-                    eligible[name] = (eta[name], _k + 2)
-                else:
-                    # Try to find a core that satisfies strict periodicity guard for periodic; events always ok
-                    for c in list(available_cores):
-                        next_act = next(iter(theta.values()))
-                        safe = (tau + t_i) <= next_act
-                        if safe:
-                            assigned_core = c
-                            available_cores.remove(c)
-                            idle_cores.remove(c)
-                            start_i = tau
-                            finish_i = tau + t_i
-                            break
-                        else:
-                            # Get first task name from (name, core) tuple
-                            first_theta_key = next(iter(theta.keys()))[0]
-                            eta[name] = next_act + \
-                                runnables[first_theta_key]['execution_time']
-                            eligible[name] = (eta[name], _k + 1)
-                            ready.remove(name)
-                            break
-                    # If none safe, skip dispatching this task in this round
-                    if assigned_core is None:
-                        continue
-
-                running[name] = (finish_i, assigned_core)
-                schedule_out.append(ScheduleEntry(
-                    name, start_i, finish_i, assigned_core))
-
-            if not running:
-                # Nothing could be dispatched; advance time to next activation or break to avoid infinite loop
-                # Attempt to advance to the smallest eta among remaining eligible
-                if eligible:
-                    tau = min(eta_val for eta_val, _ in eligible.values())
-                    continue
-                else:
-                    break
-
-            # Advance time to the next finish
-            tau = min(fin for fin, _ in running.values())
-            # TODO: Add iteration labelling for completed runnables.
-
-            # Complete tasks finishing at tau
-            just_finished = [n for n, (fin, _) in list(
-                running.items()) if fin == tau]
-            for name in just_finished:
-                fin, core = running.pop(name)
-                completed.add(name)
-                # Release core
-                if core not in idle_cores:
+        # Complete any at tau_next
+        for (name, eligible_time), (finish_time, core) in list(running.items()):
+            if finish_time == tau_next:
+                running.pop((name, eligible_time))
+                if core not in idle_cores:  # TODO: IdleCores should have all the cores
                     idle_cores.append(core)
                     idle_cores.sort()
-                # Propagate to successors
-                for succ in successors.get(name, []):
-                    if succ in completed:
-                        continue
-                    eta[succ] = tau
-                    if succ not in eligible and succ not in running:
-                        # Check if all preds of succ are completed
-                        preds = runnables.get(succ, {}).get('deps', []) or []
-                        if all(p in completed for p in preds):
-                            # Current iteration
-                            eligible[succ] = (eta[succ], _k + 1)
+                for s in successors[name]:
+                    tokens[(name, s)] = tokens.get((name, s), 0) + 1
 
-        # Adjust start and finish times to be cumulative
-        for entry in schedule_out:
-            entry.start += cumulative_offset
-            entry.finish += cumulative_offset
+        tau = tau_next
 
-        all_iterations.append(schedule_out)
-        # Makespan is the iteration period (since next iteration starts at this boundary)
-        makespans.append(iteration_period)
-        # Next iteration starts at iteration period boundary
-        cumulative_offset += iteration_period
-
-    print(f"Makespan: {sum(makespans)}")
-    print(f"All schedule entries:")
-    # Flatten all iterations into one list
-    all_entries = []
-    for schedule in all_iterations:
-        all_entries.extend(schedule)
-    # Print each entry on its own line
-    for entry in all_entries:
-        print(f"  {entry}")
-
-    return all_iterations, makespans
+    finish_time = max((e.finish_time for e in schedule), default=0)
+    return schedule, finish_time
 
 
 def plot_schedule(log_data, title, ax):
-    """Plot schedule data as a Gantt chart."""
-    # Extract base task names (remove _iter suffix for legend)
-    base_tasks = sorted(
-        set(task.split('_iter')[0] for _, _, task, _, _ in log_data))
+    base_tasks = sorted(set(task for _, _, task, _, _ in log_data))
     color_palette = plt.cm.get_cmap("tab20", len(base_tasks))
     task_colors = {base_task: color_palette(
         i) for i, base_task in enumerate(base_tasks)}
 
-    cores = list(sorted(set(core for _, _, _, _, core in log_data), key=str))
+    cores = list(sorted(set(core for _, _, _, _, core in log_data)))
     y_positions = {core: i for i, core in enumerate(cores)}
 
-    for start, end, task, instance, core in log_data:
-        base_task = task.split('_iter')[0]  # Get base task name for color
+    for start, end, task, release, core in log_data:
         ax.barh(y_positions[core], end - start, left=start,
-                color=task_colors[base_task], edgecolor="black")
+                color=task_colors[task], edgecolor="black")
 
     ax.set_yticks(range(len(cores)))
     ax.set_yticklabels([f"Core {core}" for core in cores])
@@ -386,7 +310,7 @@ def plot_schedule(log_data, title, ax):
               loc='upper left', title="Runnables")
 
 
-# Use case: Automotive system runnables
+# Example runnables
 runnables = {
     'RadarCapture': {
         'criticality': 1,
@@ -470,59 +394,21 @@ runnables = {
     },
 }
 
-# Run the main scheduler with specified parameters
-num_cores = 1
-iterations = 6
-scheduling_policy = "fcfs"
-allocation_policy = "dynamic"
-
-print(f"Running main scheduler with:")
-print(f"  Cores: {num_cores}")
-print(f"  Iterations: {iterations}")
-print(f"  Scheduling Policy: {scheduling_policy}")
-print(f"  Allocation Policy: {allocation_policy}")
-print()
-
-all_schedules, makespans = run_main_scheduler(
-    runnables,
-    num_cores,
-    scheduling_policy,
-    allocation_policy,
-    iterations
-)
-
-# Visualization
-print("\n" + "="*60)
-print("VISUALIZATION")
-print("="*60)
-
-# Convert ScheduleEntry objects to log format for visualization
+# Re-run
+schedule_dyn, finish_dyn = run_main_scheduler(
+    runnables, num_cores=4, scheduling_policy="pas", allocation_policy="dynamic", T_end=None)
+schedule_static, finish_static = run_main_scheduler(
+    runnables, num_cores=4, scheduling_policy="fcfs", allocation_policy="static", T_end=None)
 
 
-def schedule_to_log_data(schedule_entries):
-    """Convert ScheduleEntry objects to log data format for plotting."""
-    return [(entry.start, entry.finish, entry.runnable, 0, entry.core)
-            for entry in schedule_entries]
+def schedule_to_log_data(schedule: List[ScheduleEntry]):
+    return [(e.start_time, e.finish_time, e.runnable, e.eligible_time, e.core) for e in schedule]
 
 
-# Plot all iterations in a single cumulative figure
-plt.figure(figsize=(16, 8))
-ax = plt.gca()
-
-# Flatten all iterations into one continuous schedule
-all_log_data = []
-for i, schedule in enumerate(all_schedules):
-    log_data = schedule_to_log_data(schedule)
-    # Tasks are already cumulative from the scheduler, just add iteration labels
-    offset_log_data = [(start, end, f"{task}_iter{i+1}", 0, core)
-                       for start, end, task, _, core in log_data]
-    all_log_data.extend(offset_log_data)
-
-plot_schedule(
-    all_log_data,
-    f"Main Scheduler - All {len(all_schedules)} Iterations (FCFS, Dynamic Allocation, {num_cores} Cores)",
-    # f"Main Scheduler - All {len(all_schedules)} Iterations (PAS, {num_cores} Core)",
-    ax
-)
+fig, axs = plt.subplots(2, 1, figsize=(16, 10), sharex=True)
+plot_schedule(schedule_to_log_data(schedule_dyn),
+              f"Dynamic Allocation (FCFS), finish @ {finish_dyn} ms", axs[0])
+plot_schedule(schedule_to_log_data(schedule_static),
+              f"Static Allocation (FCFS), finish @ {finish_static} ms", axs[1])
 plt.tight_layout()
 plt.show()
