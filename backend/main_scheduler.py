@@ -16,7 +16,7 @@ finite DAG-style schedule. Periodic runnables behave as sources with eta_i = 0.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import gcd
+from math import gcd, inf
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import matplotlib.patches as mpatches
@@ -179,11 +179,17 @@ def run_main_scheduler(
 
     tau = 0
     theta: Dict[str, int] = {}
+    next_active = 0
+    eta: Dict[str, int] = {}
+    start: Dict[str, int] = {}
     running: Dict[Tuple[str, int], Tuple[int, int]] = {}
     schedule: List[ScheduleEntry] = []
     for name, props in runnables.items():
         if props.get("type") == "periodic" and int(props.get("period", 0)) > 0:
             theta[name] = 0
+        else:
+            eta[name] = 0
+            start[name] = 0
 
     tokens: Dict[Tuple[str, str], int] = {
         (p, n): 0 for n in runnables for p in predecessors[n]}
@@ -191,9 +197,10 @@ def run_main_scheduler(
     def get_periodic_at_tau(t: int) -> List[str]:
         return sorted([n for n in theta if theta[n] == t])
 
-    def get_eligible_event() -> List[str]:
+    def get_event_at_tau(t: int) -> List[str]:
         return [n for n, props in runnables.items() if props.get("type") != "periodic"
-                and all(tokens[(p, n)] > 0 for p in predecessors[n])]
+                and all(tokens[(p, n)] > 0 for p in predecessors[n])
+                and start[n] <= t]
 
     def run_periodic_now(t: int, periodic: List[str], available_cores: List[int]) -> None:
         if not periodic:
@@ -225,15 +232,18 @@ def run_main_scheduler(
 
     while tau < T_end or running:
         # Admit periodic jobs released at tau
+        eligible_event = get_event_at_tau(tau)
+
+        if len(eligible_event) == 0:
+            tau = next_active
+
         periodic_at_tau = get_periodic_at_tau(tau)
 
         ordered_eligible_periodic = order_eligible(periodic_at_tau, runnables, {
             e: tau for e in periodic_at_tau}, scheduling_policy)
 
-        eligible_event = get_eligible_event()
-
         ordered_eligible_event = order_eligible(eligible_event, runnables, {
-            e: tau for e in eligible_event}, scheduling_policy)
+            e: eta[e] for e in eligible_event}, scheduling_policy)
 
         eligible = ordered_eligible_periodic + ordered_eligible_event
 
@@ -242,26 +252,31 @@ def run_main_scheduler(
 
         run_periodic_now(tau, ordered_eligible_periodic, available_cores)
 
-        # TODO: Safety Guard
-
         sorted_available_cores = list(sorted(available_cores))
         for name in ordered_eligible_event:
+            start[name] = tau
             if not sorted_available_cores:
                 break
-            core = sorted_available_cores.pop(0)
-            if core in available_cores:
-                available_cores.remove(core)
-                idle_cores.remove(core)
+
             t_i = int(runnables[name]["execution_time"])
-            running[(name, tau)] = (tau + t_i, core)
-            schedule.append(ScheduleEntry(
-                name, tau, tau + t_i, core, eligible_time=tau))
-            for p in predecessors[name]:
-                tokens[(p, name)] -= 1
+            if start[name] + t_i > next_active and start[name] <= tau:
+                first_theta_key = min(theta.keys())
+                start[name] = next_active + \
+                    runnables[first_theta_key]["execution_time"]
+            else:
+                core = sorted_available_cores.pop(0)
+                if core in available_cores:
+                    available_cores.remove(core)
+                    idle_cores.remove(core)
+                running[(name, tau)] = (tau + t_i, core)
+                schedule.append(ScheduleEntry(
+                    name, tau, tau + t_i, core, eligible_time=tau))
+                for p in predecessors[name]:
+                    tokens[(p, name)] -= 1
 
         next_fin = min((fin for (fin, _) in running.values()), default=None)
         # strictly greater than tau
-        next_active = min((t for t in theta.values() if t > tau), default=None)
+        next_active = min((t for t in theta.values() if t > tau), default=inf)
         next_decision_point = [t for t in [
             next_fin, next_active] if t is not None]
         if not next_decision_point:
@@ -277,6 +292,8 @@ def run_main_scheduler(
                     idle_cores.sort()
                 for s in successors[name]:
                     tokens[(name, s)] = tokens.get((name, s), 0) + 1
+                    start[s] = finish_time
+                    eta[s] = finish_time
 
         tau = tau_next
 
