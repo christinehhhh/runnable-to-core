@@ -409,11 +409,11 @@ runnables = {
     },
 }
 
-# TODO: Single core, less than hyperperiod
+# TODO: Double core
 
 # Re-run
 schedule_dyn, finish_dyn = run_main_scheduler(
-    runnables, num_cores=6, scheduling_policy="fcfs", allocation_policy="dynamic", T_end=None)
+    runnables, num_cores=2, scheduling_policy="pas", allocation_policy="dynamic", T_end=None)
 schedule_static, finish_static = run_main_scheduler(
     runnables, num_cores=4, scheduling_policy="fcfs", allocation_policy="static", T_end=None)
 
