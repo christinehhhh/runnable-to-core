@@ -237,7 +237,7 @@ def run_main_scheduler(
         # Admit periodic jobs released at tau
         eligible_event = get_event_at_tau(tau)
 
-        if len(eligible_event) == 0 and len(idle_cores) <= 1:
+        if len(eligible_event) == 0 and num_cores <= 1:
             tau = next_active
 
         periodic_at_tau = get_periodic_at_tau(tau)
