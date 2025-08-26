@@ -264,7 +264,7 @@ def run_main_scheduler(
             else:
                 theta.pop(n, None)
 
-    while tau < T_end or running:
+    while tau < T_end:
         # Admit periodic jobs released at tau
         eligible_event = get_event_at_tau(tau)
 
