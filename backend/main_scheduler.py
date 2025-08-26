@@ -541,10 +541,16 @@ def schedule_to_log_data(schedule: List[ScheduleEntry]):
     return [(e.start_time, e.finish_time, e.runnable, e.eligible_time, e.core) for e in schedule]
 
 
-fig, axs = plt.subplots(2, 1, figsize=(16, 10), sharex=True)
+# Plot dynamic schedule in its own figure
+fig_dyn, ax_dyn = plt.subplots(1, 1, figsize=(16, 5), sharex=True)
 plot_schedule(schedule_to_log_data(schedule_dyn),
-              f"Dynamic Allocation (FCFS), finish @ {finish_dyn} ms", axs[0])
+              f"Dynamic Allocation (PAS), finish @ {finish_dyn} ms", ax_dyn)
+plt.tight_layout()
+plt.show()
+
+# Plot static schedule in its own figure
+fig_static, ax_static = plt.subplots(1, 1, figsize=(16, 5), sharex=True)
 plot_schedule(schedule_to_log_data(schedule_static),
-              f"Static Allocation (FCFS), finish @ {finish_static} ms", axs[1])
+              f"Static Allocation (FCFS), finish @ {finish_static} ms", ax_static)
 plt.tight_layout()
 plt.show()
