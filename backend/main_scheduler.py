@@ -16,8 +16,8 @@ finite DAG-style schedule. Periodic runnables behave as sources with eta_i = 0.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import ceil, gcd, inf
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from math import ceil, inf
+from typing import Dict, List, Optional, Tuple
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -30,17 +30,6 @@ class ScheduleEntry:
     finish_time: int
     core: int
     eligible_time: int
-
-
-def lcm(a: int, b: int) -> int:
-    return a * b // gcd(a, b) if a and b else max(a, b)
-
-
-def lcm_list(vals: Iterable[int]) -> int:
-    out = 1
-    for v in vals:
-        out = lcm(out, v)
-    return max(out, 1)
 
 
 def topology(runnables: Dict[str, Dict]) -> Tuple[Dict[str, List[str]], Dict[str, List[str]]]:
@@ -75,12 +64,16 @@ def dynamic_allocation(idle_cores: List[int], eligible: List[str]) -> Tuple[int,
     return idle_cores[:c_alloc]
 
 
+def compute_total_work(runnables: Dict[str, Dict]) -> int:
+    return sum(int(props.get("execution_time", 0))
+               for props in runnables.values())
+
+
 def compute_parallelism_bounds(runnables: Dict[str, Dict], num_cores: int) -> Tuple[int, int]:
     """Compute (W, T_CP, P_max_approx). Uses a relaxed approximation for P_max: number of sources."""
     successors, predecessors = topology(runnables)
     # Total work W (one instance per node baseline)
-    W = sum(int(props.get("execution_time", 0))
-            for props in runnables.values())
+    W = compute_total_work(runnables)
     # Critical path via longest path DP on DAG of single-shot graph
     # (For periodic tasks, treat as sources with EST=0)
     runnable_path_length: Dict[str, int] = {}
@@ -183,7 +176,7 @@ def run_main_scheduler(
     num_cores: int,
     scheduling_policy: str = "fcfs",
     allocation_policy: str = "dynamic",
-    T_end: Optional[int] = None,
+    I: Optional[int] = None,
 ) -> Tuple[List[ScheduleEntry], int]:
     """Execute the main scheduling algorithm for a finite DAG per iteration.
 
@@ -194,11 +187,11 @@ def run_main_scheduler(
 
     successors, predecessors = topology(runnables)
 
-    periods = [int(props.get("period", 0)) for props in runnables.values(
-    ) if props.get("type") == "periodic" and int(props.get("period", 0)) > 0]
-    hyperperiod = lcm_list(periods) if periods else 1
-    if T_end is None:
-        T_end = hyperperiod
+    total_work = compute_total_work(runnables)
+    if I is None:
+        T_end = 2 * total_work
+    else:
+        T_end = I * total_work
 
     p_max, n_min = compute_parallelism_bounds(runnables, num_cores)
 
@@ -293,6 +286,10 @@ def run_main_scheduler(
                 break
 
             t_i = int(runnables[name]["execution_time"])
+
+            if tau + t_i > T_end:
+                break
+
             if theta and start[name] + t_i > next_active and start[name] <= tau:
                 first_theta_key = min(theta.keys())
                 start[name] = next_active + \
@@ -479,11 +476,35 @@ runnables = {
     # },
 }
 
+runnables_long_path = {
+    'Task1':  {'priority': 1, 'execution_time': 15, 'type': 'periodic', 'period': 100, 'deps': []},
+    'Task2':  {'priority': 2, 'execution_time': 20, 'type': 'periodic', 'period': 150, 'deps': []},
+
+    'Task3':  {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Task1']},
+    'Task4':  {'priority': 1, 'execution_time': 30, 'type': 'event', 'deps': ['Task3']},
+    'Task5':  {'priority': 1, 'execution_time': 20, 'type': 'event', 'deps': ['Task4']},
+    'Task6':  {'priority': 1, 'execution_time': 35, 'type': 'event', 'deps': ['Task5']},
+    'Task7':  {'priority': 2, 'execution_time': 40, 'type': 'event', 'deps': ['Task6']},
+    'Task8':  {'priority': 2, 'execution_time': 25, 'type': 'event', 'deps': ['Task7']},
+    'Task9':  {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Task8']},
+    'Task10': {'priority': 2, 'execution_time': 20, 'type': 'event', 'deps': ['Task9']},
+    'Task11': {'priority': 2, 'execution_time': 45, 'type': 'event', 'deps': ['Task10']},
+    'Task12': {'priority': 3, 'execution_time': 30, 'type': 'event', 'deps': ['Task11']},
+    'Task13': {'priority': 3, 'execution_time': 35, 'type': 'event', 'deps': ['Task12']},
+    'Task14': {'priority': 3, 'execution_time': 25, 'type': 'event', 'deps': ['Task13']},
+    'Task15': {'priority': 3, 'execution_time': 40, 'type': 'event', 'deps': ['Task14']},
+    'Task16': {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Task15']},
+    'Task17': {'priority': 4, 'execution_time': 50, 'type': 'event', 'deps': ['Task16']},
+    'Task18': {'priority': 4, 'execution_time': 25, 'type': 'event', 'deps': ['Task17']},
+    'Task19': {'priority': 4, 'execution_time': 35, 'type': 'event', 'deps': ['Task18']},
+    'Task20': {'priority': 4, 'execution_time': 30, 'type': 'event', 'deps': ['Task19']},
+}
+
 # Re-run
 schedule_dyn, finish_dyn = run_main_scheduler(
-    runnables, num_cores=6, scheduling_policy="pas", allocation_policy="dynamic", T_end=None)
+    runnables=runnables_long_path, num_cores=6, scheduling_policy="pas", allocation_policy="dynamic", I=3)
 schedule_static, finish_static = run_main_scheduler(
-    runnables, num_cores=6, scheduling_policy="fcfs", allocation_policy="static", T_end=None)
+    runnables=runnables_long_path, num_cores=6, scheduling_policy="fcfs", allocation_policy="static", I=3)
 
 
 def schedule_to_log_data(schedule: List[ScheduleEntry]):
