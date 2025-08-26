@@ -7,7 +7,7 @@ Data model assumptions for `runnables` input:
   - 'execution_time': int (t_i)
   - 'period': int (T_i) for periodic only (optional for event)
   - 'deps': List[str] (predecessor runnable names), optional
-  - 'criticality': int used as priority p_i for PAS (default 0)
+  - 'priority': int used as priority p_i for PAS (default 0)
 
 This scheduler treats a single instance of each runnable per iteration, i.e., a
 finite DAG-style schedule. Periodic runnables behave as sources with eta_i = 0.
@@ -58,7 +58,7 @@ def order_eligible(eligible: List[str], runnables: Dict[str, Dict], eta: Dict[st
     policy = policy.lower()
     if policy == "pas":
         def key_fn(name: str):
-            p_i = int(runnables[name].get("criticality", 0))
+            p_i = int(runnables[name].get("priority", 0))
             return (-p_i, int(eta.get(name, 0)), name)
         return sorted(eligible, key=key_fn)
     # fcfs
@@ -368,81 +368,81 @@ def plot_schedule(log_data, title, ax):
 # Example runnables
 runnables = {
     'RadarCapture': {
-        'criticality': 1,
+        'priority': 1,
         'period': 75,
         'execution_time': 2,
         'type': 'periodic',
         'deps': []
     },
     'CameraCapture': {
-        'criticality': 0,
+        'priority': 0,
         'period': 50,
         'execution_time': 7,
         'type': 'periodic',
         'deps': []
     },
     'SensorFusion': {
-        'criticality': 1,
+        'priority': 1,
         'execution_time': 6,
         'type': 'event',
         'deps': ['RadarCapture', 'CameraCapture'],
     },
     'ObjectDetection': {
-        'criticality': 1,
+        'priority': 1,
         'execution_time': 15,
         'type': 'event',
         'deps': ['SensorFusion'],
     },
     'TrajectoryPrediction': {
-        'criticality': 1,
+        'priority': 1,
         'execution_time': 8,
         'type': 'event',
         'deps': ['ObjectDetection'],
     },
     'CollisionRiskAssessment': {
-        'criticality': 2,
+        'priority': 2,
         'execution_time': 3,
         'type': 'event',
         'deps': ['TrajectoryPrediction'],
     },
     'EmergencyBrakeDecision': {
-        'criticality': 2,
+        'priority': 2,
         'execution_time': 2,
         'type': 'event',
         'deps': ['CollisionRiskAssessment'],
     },
     'ActuatorControl': {
-        'criticality': 2,
+        'priority': 2,
         'execution_time': 1,
         'type': 'event',
         'deps': ['EmergencyBrakeDecision'],
     },
     'LaneMarkingDetection': {
-        'criticality': 1,
+        'priority': 1,
         'execution_time': 6,
         'type': 'event',
         'deps': ['CameraCapture'],
     },
     'VehiclePositionEstimation': {
-        'criticality': 1,
+        'priority': 1,
         'execution_time': 4,
         'type': 'event',
         'deps': ['LaneMarkingDetection'],
     },
     'LaneDepartureWarning': {
-        'criticality': 1,
+        'priority': 1,
         'execution_time': 2,
         'type': 'event',
         'deps': ['VehiclePositionEstimation'],
     },
     'SteeringAngleCalculation': {
-        'criticality': 1,
+        'priority': 1,
         'execution_time': 2,
         'type': 'event',
         'deps': ['VehiclePositionEstimation'],
     },
     'SteeringActuatorControl': {
-        'criticality': 2,
+        'priority': 2,
         'execution_time': 1,
         'type': 'event',
         'deps': ['LaneDepartureWarning', 'SteeringAngleCalculation'],
