@@ -75,7 +75,7 @@ def compute_parallelism_bounds(runnables: Dict[str, Dict], num_cores: int) -> Tu
     # Total work W (one instance per node baseline)
     W = compute_total_work(runnables)
     # Critical path via longest path DP on DAG of single-shot graph
-    # (For periodic tasks, treat as sources with EST=0)
+    # (For periodic Runnables, treat as sources with EST=0)
     runnable_path_length: Dict[str, int] = {}
     remaining_runnables = set(runnables.keys())
     while remaining_runnables:
@@ -99,7 +99,7 @@ def compute_parallelism_bounds(runnables: Dict[str, Dict], num_cores: int) -> Tu
         completed = set()
         eligible = set()
 
-        # Initially eligible: tasks with no dependencies or periodic sources
+        # Initially eligible: Runnables with no dependencies or periodic sources
         for name, props in runnables.items():
             deps = props.get("deps", []) or []
             if props.get("type") == "periodic" or len(deps) == 0:
@@ -108,15 +108,15 @@ def compute_parallelism_bounds(runnables: Dict[str, Dict], num_cores: int) -> Tu
         max_parallelism = max(max_parallelism, len(eligible))
 
         while eligible:
-            # Execute all eligible tasks simultaneously (unlimited cores)
-            tasks_to_execute = list(eligible)
+            # Execute all eligible Runnables simultaneously (unlimited cores)
+            Runnables_to_execute = list(eligible)
             eligible.clear()
-            completed.update(tasks_to_execute)
+            completed.update(Runnables_to_execute)
 
-            # Find new eligible tasks
+            # Find new eligible Runnables
             newly_eligible = set()
-            for task in tasks_to_execute:
-                for succ in successors.get(task, []):
+            for Runnable in Runnables_to_execute:
+                for succ in successors.get(Runnable, []):
                     if succ in completed or succ in newly_eligible:
                         continue
                     preds = runnables.get(succ, {}).get("deps", []) or []
@@ -338,25 +338,25 @@ def run_main_scheduler(
 
 
 def plot_schedule(log_data, title, ax):
-    base_tasks = sorted(set(task for _, _, task, _, _ in log_data))
-    color_palette = plt.cm.get_cmap("tab20", len(base_tasks))
-    task_colors = {base_task: color_palette(
-        i) for i, base_task in enumerate(base_tasks)}
+    base_Runnables = sorted(set(Runnable for _, _, Runnable, _, _ in log_data))
+    color_palette = plt.cm.get_cmap("tab20", len(base_Runnables))
+    Runnable_colors = {base_Runnable: color_palette(
+        i) for i, base_Runnable in enumerate(base_Runnables)}
 
     cores = list(sorted(set(core for _, _, _, _, core in log_data)))
     y_positions = {core: i for i, core in enumerate(cores)}
 
-    for start, end, task, release, core in log_data:
+    for start, end, Runnable, release, core in log_data:
         ax.barh(y_positions[core], end - start, left=start,
-                color=task_colors[task], edgecolor="black")
+                color=Runnable_colors[Runnable], edgecolor="black")
 
     ax.set_yticks(range(len(cores)))
     ax.set_yticklabels([f"Core {core}" for core in cores])
     ax.set_xlabel("Time (ms)")
     ax.set_title(title)
     ax.grid(True, axis='x', linestyle='--', alpha=0.5)
-    handles = [mpatches.Patch(color=color, label=base_task)
-               for base_task, color in task_colors.items()]
+    handles = [mpatches.Patch(color=color, label=base_Runnable)
+               for base_Runnable, color in Runnable_colors.items()]
     ax.legend(handles=handles, bbox_to_anchor=(1.05, 1),
               loc='upper left', title="Runnables")
 
@@ -477,64 +477,64 @@ runnables = {
 }
 
 runnables_long_path = {
-    'Task1':  {'priority': 1, 'execution_time': 15, 'type': 'periodic', 'period': 100, 'deps': []},
-    'Task2':  {'priority': 2, 'execution_time': 20, 'type': 'periodic', 'period': 150, 'deps': []},
+    'Runnable1':  {'priority': 1, 'execution_time': 15, 'type': 'periodic', 'period': 100, 'deps': []},
+    'Runnable2':  {'priority': 2, 'execution_time': 20, 'type': 'periodic', 'period': 150, 'deps': []},
 
-    'Task3':  {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Task1']},
-    'Task4':  {'priority': 4, 'execution_time': 30, 'type': 'event', 'deps': ['Task3']},
-    'Task5':  {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Task4']},
-    'Task6':  {'priority': 1, 'execution_time': 35, 'type': 'event', 'deps': ['Task5']},
-    'Task7':  {'priority': 2, 'execution_time': 40, 'type': 'event', 'deps': ['Task6']},
-    'Task8':  {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Task7']},
-    'Task9':  {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Task8']},
-    'Task10': {'priority': 4, 'execution_time': 20, 'type': 'event', 'deps': ['Task9']},
-    'Task11': {'priority': 2, 'execution_time': 45, 'type': 'event', 'deps': ['Task10']},
-    'Task12': {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Task11']},
-    'Task13': {'priority': 3, 'execution_time': 35, 'type': 'event', 'deps': ['Task12']},
-    'Task14': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Task13']},
-    'Task15': {'priority': 3, 'execution_time': 40, 'type': 'event', 'deps': ['Task14']},
-    'Task16': {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Task15']},
-    'Task17': {'priority': 4, 'execution_time': 50, 'type': 'event', 'deps': ['Task16']},
-    'Task18': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Task17']},
-    'Task19': {'priority': 4, 'execution_time': 35, 'type': 'event', 'deps': ['Task18']},
-    'Task20': {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Task19']},
+    'Runnable3':  {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable1']},
+    'Runnable4':  {'priority': 4, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable3']},
+    'Runnable5':  {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable4']},
+    'Runnable6':  {'priority': 1, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable5']},
+    'Runnable7':  {'priority': 2, 'execution_time': 40, 'type': 'event', 'deps': ['Runnable6']},
+    'Runnable8':  {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable7']},
+    'Runnable9':  {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable8']},
+    'Runnable10': {'priority': 4, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable9']},
+    'Runnable11': {'priority': 2, 'execution_time': 45, 'type': 'event', 'deps': ['Runnable10']},
+    'Runnable12': {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable11']},
+    'Runnable13': {'priority': 3, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable12']},
+    'Runnable14': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable13']},
+    'Runnable15': {'priority': 3, 'execution_time': 40, 'type': 'event', 'deps': ['Runnable14']},
+    'Runnable16': {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable15']},
+    'Runnable17': {'priority': 4, 'execution_time': 50, 'type': 'event', 'deps': ['Runnable16']},
+    'Runnable18': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable17']},
+    'Runnable19': {'priority': 4, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable18']},
+    'Runnable20': {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable19']},
 }
 
 runnables_balanced = {
-    'Task1':  {'priority': 1, 'execution_time': 20, 'type': 'periodic', 'period': 100, 'deps': []},
-    'Task2':  {'priority': 3, 'execution_time': 25, 'type': 'periodic', 'period': 180, 'deps': []},
+    'Runnable1':  {'priority': 1, 'execution_time': 20, 'type': 'periodic', 'period': 100, 'deps': []},
+    'Runnable2':  {'priority': 3, 'execution_time': 25, 'type': 'periodic', 'period': 180, 'deps': []},
 
-    'Task3':  {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Task1']},
-    'Task4':  {'priority': 4, 'execution_time': 20, 'type': 'event', 'deps': ['Task1']},
-    'Task5':  {'priority': 2, 'execution_time': 40, 'type': 'event', 'deps': ['Task2']},
-    'Task6':  {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Task2']},
+    'Runnable3':  {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable1']},
+    'Runnable4':  {'priority': 4, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable1']},
+    'Runnable5':  {'priority': 2, 'execution_time': 40, 'type': 'event', 'deps': ['Runnable2']},
+    'Runnable6':  {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable2']},
 
-    'Task7':  {'priority': 2, 'execution_time': 25, 'type': 'event', 'deps': ['Task3', 'Task4']},
-    'Task8':  {'priority': 2, 'execution_time': 35, 'type': 'event', 'deps': ['Task5', 'Task6']},
-    'Task9':  {'priority': 4, 'execution_time': 20, 'type': 'event', 'deps': ['Task3']},
-    'Task10': {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Task4']},
+    'Runnable7':  {'priority': 2, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable3', 'Runnable4']},
+    'Runnable8':  {'priority': 2, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable5', 'Runnable6']},
+    'Runnable9':  {'priority': 4, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable3']},
+    'Runnable10': {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable4']},
 
-    'Task11': {'priority': 1, 'execution_time': 40, 'type': 'event', 'deps': ['Task7']},
-    'Task12': {'priority': 3, 'execution_time': 25, 'type': 'event', 'deps': ['Task8']},
-    'Task13': {'priority': 0, 'execution_time': 35, 'type': 'event', 'deps': ['Task9', 'Task10']},
+    'Runnable11': {'priority': 1, 'execution_time': 40, 'type': 'event', 'deps': ['Runnable7']},
+    'Runnable12': {'priority': 3, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable8']},
+    'Runnable13': {'priority': 0, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable9', 'Runnable10']},
 
-    'Task14': {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Task11']},
-    'Task15': {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Task12']},
-    'Task16': {'priority': 4, 'execution_time': 40, 'type': 'event', 'deps': ['Task13']},
+    'Runnable14': {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable11']},
+    'Runnable15': {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable12']},
+    'Runnable16': {'priority': 4, 'execution_time': 40, 'type': 'event', 'deps': ['Runnable13']},
 
-    'Task17': {'priority': 1, 'execution_time': 45, 'type': 'event', 'deps': ['Task14', 'Task15']},
-    'Task18': {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Task16']},
+    'Runnable17': {'priority': 1, 'execution_time': 45, 'type': 'event', 'deps': ['Runnable14', 'Runnable15']},
+    'Runnable18': {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable16']},
 
-    'Task19': {'priority': 2, 'execution_time': 50, 'type': 'event', 'deps': ['Task17', 'Task18']},
-    'Task20': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Task19']},
+    'Runnable19': {'priority': 2, 'execution_time': 50, 'type': 'event', 'deps': ['Runnable17', 'Runnable18']},
+    'Runnable20': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable19']},
 }
 
 
 # Re-run
 schedule_dyn, finish_dyn = run_main_scheduler(
-    runnables=runnables_balanced, num_cores=6, scheduling_policy="pas", allocation_policy="dynamic", I=None)
-schedule_static, finish_static = run_main_scheduler(
-    runnables=runnables_balanced, num_cores=6, scheduling_policy="fcfs", allocation_policy="static", I=None)
+    runnables=runnables_long_path, num_cores=6, scheduling_policy="fcfs", allocation_policy="dynamic", I=None)
+# schedule_static, finish_static = run_main_scheduler(
+#     runnables=runnables_long_path, num_cores=6, scheduling_policy="fcfs", allocation_policy="static", I=None)
 
 
 def schedule_to_log_data(schedule: List[ScheduleEntry]):
