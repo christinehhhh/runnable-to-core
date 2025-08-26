@@ -447,36 +447,36 @@ runnables = {
         'deps': ['LaneDepartureWarning', 'SteeringAngleCalculation'],
     },
 
-    'DistanceEstimation': {
-        'priority': 1,
-        'execution_time': 5,
-        'type': 'event',
-        'deps': ['ObjectDetection'],
-    },
-    'RelativeSpeedEstimation': {
-        'priority': 1,
-        'execution_time': 4,
-        'type': 'event',
-        'deps': ['ObjectDetection'],
-    },
-    'AdaptiveCruiseControlDecision': {
-        'priority': 2,
-        'execution_time': 6,
-        'type': 'event',
-        'deps': ['DistanceEstimation', 'RelativeSpeedEstimation'],
-    },
-    'ThrottleControl': {
-        'priority': 2,
-        'execution_time': 2,
-        'type': 'event',
-        'deps': ['AdaptiveCruiseControlDecision'],
-    },
-    'BrakeControl': {
-        'priority': 2,
-        'execution_time': 2,
-        'type': 'event',
-        'deps': ['AdaptiveCruiseControlDecision'],
-    },
+    # 'DistanceEstimation': {
+    #     'priority': 1,
+    #     'execution_time': 5,
+    #     'type': 'event',
+    #     'deps': ['ObjectDetection'],
+    # },
+    # 'RelativeSpeedEstimation': {
+    #     'priority': 1,
+    #     'execution_time': 4,
+    #     'type': 'event',
+    #     'deps': ['ObjectDetection'],
+    # },
+    # 'AdaptiveCruiseControlDecision': {
+    #     'priority': 2,
+    #     'execution_time': 6,
+    #     'type': 'event',
+    #     'deps': ['DistanceEstimation', 'RelativeSpeedEstimation'],
+    # },
+    # 'ThrottleControl': {
+    #     'priority': 2,
+    #     'execution_time': 2,
+    #     'type': 'event',
+    #     'deps': ['AdaptiveCruiseControlDecision'],
+    # },
+    # 'BrakeControl': {
+    #     'priority': 2,
+    #     'execution_time': 2,
+    #     'type': 'event',
+    #     'deps': ['AdaptiveCruiseControlDecision'],
+    # },
 }
 
 # Re-run
