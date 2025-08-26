@@ -66,7 +66,7 @@ def order_eligible(eligible: List[str], runnables: Dict[str, Dict], eta: Dict[st
 
 
 def static_allocation(num_cores: int, p_max: int, n_min: int) -> List[int]:
-    c_alloc = max(1, min(num_cores, p_max), n_min)
+    c_alloc = max(1, min(num_cores, p_max, n_min))
     return list(range(c_alloc))  # lowest indices
 
 
@@ -255,6 +255,8 @@ def run_main_scheduler(
             running[(n, t)] = (finish, assigned_core)
             schedule.append(ScheduleEntry(
                 n, start, finish, assigned_core, eligible_time=t))
+            print(ScheduleEntry(
+                n, start, finish, assigned_core, eligible_time=t))
             T_i = int(runnables[n].get("period", 0))
             next_active = t + T_i
             if T_i > 0 and next_active < T_end:
@@ -302,6 +304,8 @@ def run_main_scheduler(
                     idle_cores.remove(core)
                 running[(name, tau)] = (tau + t_i, core)
                 schedule.append(ScheduleEntry(
+                    name, tau, tau + t_i, core, eligible_time=tau))
+                print(ScheduleEntry(
                     name, tau, tau + t_i, core, eligible_time=tau))
                 for p in predecessors[name]:
                     tokens[(p, name)] -= 1
