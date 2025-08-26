@@ -75,7 +75,7 @@ def dynamic_allocation(idle_cores: List[int], eligible: List[str]) -> Tuple[int,
     return idle_cores[:c_alloc]
 
 
-def compute_parallelism_bounds(runnables: Dict[str, Dict], num_cores: int) -> Tuple[int, int, int]:
+def compute_parallelism_bounds(runnables: Dict[str, Dict], num_cores: int) -> Tuple[int, int]:
     """Compute (W, T_CP, P_max_approx). Uses a relaxed approximation for P_max: number of sources."""
     successors, predecessors = topology(runnables)
     # Total work W (one instance per node baseline)
@@ -142,7 +142,7 @@ def compute_parallelism_bounds(runnables: Dict[str, Dict], num_cores: int) -> Tu
         total_work: int,
         critical_path: int,
         epsilon: float = 0.9,
-    ) -> List[int]:
+    ) -> int:
         """Compute N_min = ceil( (epsilon * p) / (s * (1 - epsilon)) ) per DAG-aware Amdahl's law.
 
         Handles edge cases: if W == 0 -> allocate 1; if s == 0 -> N_min treated as num_cores.
