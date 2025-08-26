@@ -293,7 +293,7 @@ def run_main_scheduler(
                 break
 
             t_i = int(runnables[name]["execution_time"])
-            if start[name] + t_i > next_active and start[name] <= tau:
+            if theta and start[name] + t_i > next_active and start[name] <= tau:
                 first_theta_key = min(theta.keys())
                 start[name] = next_active + \
                     runnables[first_theta_key]["execution_time"]
