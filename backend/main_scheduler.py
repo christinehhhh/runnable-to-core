@@ -500,11 +500,41 @@ runnables_long_path = {
     'Task20': {'priority': 4, 'execution_time': 30, 'type': 'event', 'deps': ['Task19']},
 }
 
+runnables_balanced = {
+    'Task1':  {'priority': 1, 'execution_time': 20, 'type': 'periodic', 'period': 100, 'deps': []},
+    'Task2':  {'priority': 1, 'execution_time': 25, 'type': 'periodic', 'period': 180, 'deps': []},
+
+    'Task3':  {'priority': 1, 'execution_time': 30, 'type': 'event', 'deps': ['Task1']},
+    'Task4':  {'priority': 1, 'execution_time': 20, 'type': 'event', 'deps': ['Task1']},
+    'Task5':  {'priority': 2, 'execution_time': 40, 'type': 'event', 'deps': ['Task2']},
+    'Task6':  {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Task2']},
+
+    'Task7':  {'priority': 2, 'execution_time': 25, 'type': 'event', 'deps': ['Task3', 'Task4']},
+    'Task8':  {'priority': 2, 'execution_time': 35, 'type': 'event', 'deps': ['Task5', 'Task6']},
+    'Task9':  {'priority': 2, 'execution_time': 20, 'type': 'event', 'deps': ['Task3']},
+    'Task10': {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Task4']},
+
+    'Task11': {'priority': 3, 'execution_time': 40, 'type': 'event', 'deps': ['Task7']},
+    'Task12': {'priority': 3, 'execution_time': 25, 'type': 'event', 'deps': ['Task8']},
+    'Task13': {'priority': 3, 'execution_time': 35, 'type': 'event', 'deps': ['Task9', 'Task10']},
+
+    'Task14': {'priority': 3, 'execution_time': 30, 'type': 'event', 'deps': ['Task11']},
+    'Task15': {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Task12']},
+    'Task16': {'priority': 3, 'execution_time': 40, 'type': 'event', 'deps': ['Task13']},
+
+    'Task17': {'priority': 4, 'execution_time': 45, 'type': 'event', 'deps': ['Task14', 'Task15']},
+    'Task18': {'priority': 4, 'execution_time': 30, 'type': 'event', 'deps': ['Task16']},
+
+    'Task19': {'priority': 4, 'execution_time': 50, 'type': 'event', 'deps': ['Task17', 'Task18']},
+    'Task20': {'priority': 4, 'execution_time': 25, 'type': 'event', 'deps': ['Task19']},
+}
+
+
 # Re-run
 schedule_dyn, finish_dyn = run_main_scheduler(
-    runnables=runnables_long_path, num_cores=6, scheduling_policy="pas", allocation_policy="dynamic", I=3)
+    runnables=runnables_balanced, num_cores=6, scheduling_policy="pas", allocation_policy="dynamic", I=None)
 schedule_static, finish_static = run_main_scheduler(
-    runnables=runnables_long_path, num_cores=6, scheduling_policy="fcfs", allocation_policy="static", I=3)
+    runnables=runnables_balanced, num_cores=6, scheduling_policy="fcfs", allocation_policy="static", I=None)
 
 
 def schedule_to_log_data(schedule: List[ScheduleEntry]):
