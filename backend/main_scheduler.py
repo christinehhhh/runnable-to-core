@@ -16,7 +16,7 @@ finite DAG-style schedule. Periodic runnables behave as sources with eta_i = 0.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import gcd, inf
+from math import ceil, gcd, inf
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import matplotlib.patches as mpatches
@@ -65,9 +65,8 @@ def order_eligible(eligible: List[str], runnables: Dict[str, Dict], eta: Dict[st
     return sorted(eligible, key=lambda n: (int(eta.get(n, 0)), n))
 
 
-# TODO: Update static allocation
-def static_allocation(num_cores: int, p_max: int, p_avg: int) -> Tuple[int, List[int]]:
-    c_alloc = max(1, min(num_cores, max(1, p_max), max(1, p_avg)))
+def static_allocation(num_cores: int, p_max: int, n_min: int) -> List[int]:
+    c_alloc = max(1, min(num_cores, p_max), n_min)
     return list(range(c_alloc))  # lowest indices
 
 
@@ -76,7 +75,7 @@ def dynamic_allocation(idle_cores: List[int], eligible: List[str]) -> Tuple[int,
     return idle_cores[:c_alloc]
 
 
-def compute_parallelism_bounds(runnables: Dict[str, Dict]) -> Tuple[int, int, int]:
+def compute_parallelism_bounds(runnables: Dict[str, Dict], num_cores: int) -> Tuple[int, int, int]:
     """Compute (W, T_CP, P_max_approx). Uses a relaxed approximation for P_max: number of sources."""
     successors, predecessors = topology(runnables)
     # Total work W (one instance per node baseline)
@@ -134,10 +133,44 @@ def compute_parallelism_bounds(runnables: Dict[str, Dict]) -> Tuple[int, int, in
             eligible.update(newly_eligible)
             max_parallelism = max(max_parallelism, len(eligible))
 
-        return max_parallelism
+        return max(max_parallelism, 1)
 
-    p_max = max(1, calculate_max_parallelism())
-    return W, T_CP, max(1, p_max)
+    p_max = calculate_max_parallelism()
+
+    def calculate_min_core_count(
+        num_cores: int,
+        total_work: int,
+        critical_path: int,
+        epsilon: float = 0.9,
+    ) -> List[int]:
+        """Compute N_min = ceil( (epsilon * p) / (s * (1 - epsilon)) ) per DAG-aware Amdahl's law.
+
+        Handles edge cases: if W == 0 -> allocate 1; if s == 0 -> N_min treated as num_cores.
+        """
+        # Guard: no work
+        if total_work <= 0:
+            return 1
+
+        # Compute serial/parallel fractions
+        s_fraction = critical_path / total_work
+        s_fraction = max(0.0, min(1.0, s_fraction))
+        p_fraction = max(0.0, 1.0 - s_fraction)
+
+        # Compute N_min; handle s == 0 (perfect parallelism) by allowing up to available cores
+        if s_fraction == 0.0:
+            minimal_core_count = num_cores
+        else:
+            # Avoid division by zero for epsilon extremes
+            eps = min(max(epsilon, 1e-9), 1 - 1e-9)
+            minimal_core_count = ceil(
+                (eps * p_fraction) / (s_fraction * (1.0 - eps)))
+            minimal_core_count = max(1, minimal_core_count)
+
+        return minimal_core_count
+
+    n_min = calculate_min_core_count(num_cores, W, T_CP)
+
+    return p_max, n_min
 
 # Patch: ensure next_rel considers only releases strictly after current tau to avoid stalling
 # Re-run the two scenarios
@@ -167,11 +200,10 @@ def run_main_scheduler(
     if T_end is None:
         T_end = hyperperiod
 
-    W, T_CP, p_max = compute_parallelism_bounds(runnables)
-    p_avg = max(1, W // max(1, T_CP))
+    p_max, n_min = compute_parallelism_bounds(runnables, num_cores)
 
     if allocation_policy.lower() == "static":
-        available_cores = static_allocation(num_cores, p_max, p_avg)
+        available_cores = static_allocation(num_cores, p_max, n_min)
     else:
         available_cores = list(range(num_cores))
 
@@ -295,6 +327,9 @@ def run_main_scheduler(
                 if core not in idle_cores:
                     idle_cores.append(core)
                     idle_cores.sort()
+                if allocation_policy.lower() == "static":
+                    available_cores.append(core)
+                    available_cores.sort()
                 for s in successors[name]:
                     tokens[(name, s)] = tokens.get((name, s), 0) + 1
                     start[s] = finish_time
@@ -418,7 +453,7 @@ runnables = {
 
 # Re-run
 schedule_dyn, finish_dyn = run_main_scheduler(
-    runnables, num_cores=2, scheduling_policy="pas", allocation_policy="dynamic", T_end=None)
+    runnables, num_cores=4, scheduling_policy="pas", allocation_policy="dynamic", T_end=None)
 schedule_static, finish_static = run_main_scheduler(
     runnables, num_cores=4, scheduling_policy="fcfs", allocation_policy="static", T_end=None)
 
