@@ -355,8 +355,9 @@ def plot_schedule(log_data, title, ax, color_mapping=None):
 
     ax.set_yticks(range(len(cores)))
     ax.set_yticklabels([f"Core {core}" for core in cores])
-    ax.set_xlabel("Time (ms)")
-    ax.set_title(title)
+    ax.set_xlabel("Time (ms)", fontsize=14)
+    ax.set_title(title, fontsize=18)
+    ax.tick_params(axis='both', labelsize=14)  # axes tick labels = 14
     ax.grid(True, axis='x', linestyle='--', alpha=0.5)
 
     # Transform labels from "Runnable1" to "runnable 1" and sort numerically
@@ -382,8 +383,18 @@ def plot_schedule(log_data, title, ax, color_mapping=None):
 
     handles = [mpatches.Patch(color=color_mapping[runnable], label=transform_label(runnable))
                for runnable in sorted_runnables]
-    ax.legend(handles=handles, bbox_to_anchor=(1.05, 1),
-              loc='upper left', title="Runnables")
+    ax.legend(
+        handles=handles,
+        bbox_to_anchor=(1.05, 1),
+        loc='upper left',
+        title="Runnables",
+        fontsize=14,
+        title_fontsize=16,   # legend title = 16
+        labelspacing=0.6,
+        handlelength=1.2,
+        handletextpad=0.6,
+        borderpad=0.8,
+    )
 
     return color_mapping
 
@@ -591,7 +602,7 @@ plot_schedule(schedule_to_log_data(schedule_dyn),
 plt.tight_layout()
 plt.show()
 
-fig_dyn.savefig('../../Images/dynamic_long_pas.pdf',
+fig_dyn.savefig('../../Images/backend/dynamic_long_pas.pdf',
                 format='pdf', dpi=1200, bbox_inches='tight')
 
 # Plot static schedule
@@ -601,5 +612,5 @@ plot_schedule(schedule_to_log_data(schedule_static),
 plt.tight_layout()
 plt.show()
 
-fig_static.savefig('../../Images/static_long_pas.pdf',
+fig_static.savefig('../../Images/backend/static_long_pas.pdf',
                    format='pdf', dpi=1200, bbox_inches='tight')
