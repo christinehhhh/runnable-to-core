@@ -592,7 +592,7 @@ plot_schedule(schedule_to_log_data(schedule_dyn),
               ax_dyn, consistent_color_mapping, total_cores=6)
 # prevent cropping, fixed canvas
 fig_dyn.subplots_adjust(left=0.08, right=0.78, top=0.90, bottom=0.12)
-plt.show()
+# plt.show()
 # fig_dyn.savefig('../../Images/backend/dynamic_long_fcfs.pdf',
 #                 format='pdf', dpi=1200)
 
@@ -602,6 +602,20 @@ plot_schedule(schedule_to_log_data(schedule_static),
               f"Static Allocation (FCFS), finish @ {finish_static} ms",
               ax_static, consistent_color_mapping, total_cores=6)
 fig_static.subplots_adjust(left=0.08, right=0.78, top=0.90, bottom=0.12)
-plt.show()
+# plt.show()
 # fig_static.savefig(
 #     '../../Images/backend/static_long_fcfs.pdf', format='pdf', dpi=1200)
+
+# Count total runnables executed
+
+
+def count_executed_runnables(schedule):
+    return len(schedule)  # Each entry in schedule is one execution
+
+
+# After your scheduling calls
+total_dyn = count_executed_runnables(schedule_dyn)
+total_static = count_executed_runnables(schedule_static)
+
+print(f"Total runnable executions (Dynamic): {total_dyn}")
+print(f"Total runnable executions (Static): {total_static}")
