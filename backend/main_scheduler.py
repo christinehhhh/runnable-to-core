@@ -337,18 +337,21 @@ def run_main_scheduler(
     return schedule, finish_time
 
 
-def plot_schedule(log_data, title, ax):
+def plot_schedule(log_data, title, ax, color_mapping=None):
     base_Runnables = sorted(set(Runnable for _, _, Runnable, _, _ in log_data))
-    color_palette = plt.cm.get_cmap("tab20", len(base_Runnables))
-    Runnable_colors = {base_Runnable: color_palette(
-        i) for i, base_Runnable in enumerate(base_Runnables)}
+
+    # Create consistent color mapping if not provided
+    if color_mapping is None:
+        color_palette = plt.cm.get_cmap("tab20", len(base_Runnables))
+        color_mapping = {base_Runnable: color_palette(
+            i) for i, base_Runnable in enumerate(base_Runnables)}
 
     cores = list(sorted(set(core for _, _, _, _, core in log_data)))
     y_positions = {core: i for i, core in enumerate(cores)}
 
     for start, end, Runnable, release, core in log_data:
         ax.barh(y_positions[core], end - start, left=start,
-                color=Runnable_colors[Runnable], edgecolor="black")
+                color=color_mapping[Runnable], edgecolor="black")
 
     ax.set_yticks(range(len(cores)))
     ax.set_yticklabels([f"Core {core}" for core in cores])
@@ -360,7 +363,6 @@ def plot_schedule(log_data, title, ax):
     def transform_label(label):
         if label.startswith('Runnable'):
             try:
-                # Remove "Runnable" prefix and convert to int
                 number = int(label[8:])
                 return f"runnable {number}"
             except:
@@ -373,15 +375,17 @@ def plot_schedule(log_data, title, ax):
             try:
                 return int(runnable[8:])
             except:
-                return float('inf')  # Put non-numeric runnables at the end
+                return float('inf')
         return float('inf')
 
     sorted_runnables = sorted(base_Runnables, key=get_runnable_number)
 
-    handles = [mpatches.Patch(color=Runnable_colors[runnable], label=transform_label(runnable))
+    handles = [mpatches.Patch(color=color_mapping[runnable], label=transform_label(runnable))
                for runnable in sorted_runnables]
     ax.legend(handles=handles, bbox_to_anchor=(1.05, 1),
               loc='upper left', title="Runnables")
+
+    return color_mapping
 
 
 # Example runnables
@@ -569,20 +573,31 @@ def schedule_to_log_data(schedule: List[ScheduleEntry]):
     return [(e.start_time, e.finish_time, e.runnable, e.eligible_time, e.core) for e in schedule]
 
 
-# Plot dynamic schedule in its own figure
+# Create consistent color mapping
+all_runnables = set()
+for runnable in runnables_balanced.keys():
+    all_runnables.add(runnable)
+all_runnables = sorted(all_runnables, key=lambda x: int(
+    x[8:]) if x.startswith('Runnable') else float('inf'))
+
+color_palette = plt.cm.get_cmap("tab20", len(all_runnables))
+consistent_color_mapping = {runnable: color_palette(
+    i) for i, runnable in enumerate(all_runnables)}
+
+# Plot dynamic schedule
 fig_dyn, ax_dyn = plt.subplots(1, 1, figsize=(19.20, 10.80), sharex=True)
 plot_schedule(schedule_to_log_data(schedule_dyn),
-              f"Dynamic Allocation (FCFS), finish @ {finish_dyn} ms", ax_dyn)
+              f"Dynamic Allocation (PAS), finish @ {finish_dyn} ms", ax_dyn, consistent_color_mapping)
 plt.tight_layout()
 plt.show()
 
 fig_dyn.savefig('../../Images/dynamic_balanced_pas.pdf',
                 format='pdf', dpi=1200, bbox_inches='tight')
 
-# Plot static schedule in its own figure
+# Plot static schedule
 fig_static, ax_static = plt.subplots(1, 1, figsize=(19.20, 10.80), sharex=True)
 plot_schedule(schedule_to_log_data(schedule_static),
-              f"Static Allocation (FCFS), finish @ {finish_static} ms", ax_static)
+              f"Static Allocation (PAS), finish @ {finish_static} ms", ax_static, consistent_color_mapping)
 plt.tight_layout()
 plt.show()
 
