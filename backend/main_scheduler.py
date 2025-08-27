@@ -177,7 +177,7 @@ def run_main_scheduler(
     scheduling_policy: str = "fcfs",
     allocation_policy: str = "dynamic",
     I: Optional[int] = None,
-) -> Tuple[List[ScheduleEntry], int]:
+) -> Tuple[List[ScheduleEntry], int, int]:
     """Execute the main scheduling algorithm for a finite DAG per iteration.
 
     Returns a tuple (all_schedules, makespans):
@@ -228,6 +228,7 @@ def run_main_scheduler(
                 and start[n] <= t]
 
     def run_periodic_now(t: int, periodic: List[str], available_cores: List[int]) -> None:
+        nonlocal total_delay
         if not periodic:
             return
         for n in periodic:
@@ -236,6 +237,7 @@ def run_main_scheduler(
                     tx = min(finish for finish, _ in running.values()) - t
                 else:
                     tx = 0
+                total_delay += tx
                 start = t + tx
                 theta[n] = start
                 continue
@@ -257,6 +259,7 @@ def run_main_scheduler(
             else:
                 theta.pop(n, None)
 
+    total_delay = 0
     while tau < T_end:
         # Admit periodic jobs released at tau
         eligible_event = get_event_at_tau(tau)
@@ -292,8 +295,10 @@ def run_main_scheduler(
 
             if theta and start[name] + t_i > next_active and start[name] <= tau:
                 first_theta_key = min(theta.keys())
-                start[name] = next_active + \
+                delayed_start_time = next_active + \
                     runnables[first_theta_key]["execution_time"]
+                total_delay += delayed_start_time - start[name]
+                start[name] = delayed_start_time
             else:
                 core = sorted_available_cores.pop(0)
                 if core in available_cores:
@@ -334,7 +339,7 @@ def run_main_scheduler(
         tau = tau_next
 
     finish_time = max((e.finish_time for e in schedule), default=0)
-    return schedule, finish_time
+    return schedule, finish_time, total_delay
 
 
 def plot_schedule(log_data, title, ax, color_mapping=None, total_cores=None):
@@ -564,9 +569,9 @@ runnables_balanced = {
 
 
 # Re-run
-schedule_dyn, finish_dyn = run_main_scheduler(
+schedule_dyn, finish_dyn, wait_extra_dyn = run_main_scheduler(
     runnables=runnables_long_path, num_cores=6, scheduling_policy="fcfs", allocation_policy="dynamic", I=3)
-schedule_static, finish_static = run_main_scheduler(
+schedule_static, finish_static, wait_extra_static = run_main_scheduler(
     runnables=runnables_long_path, num_cores=6, scheduling_policy="fcfs", allocation_policy="static", I=3)
 
 
@@ -642,3 +647,29 @@ print_core_utilization(schedule_dyn, finish_dyn, total_cores=6)
 
 print("\nStatic run core utilization:")
 print_core_utilization(schedule_static, finish_static, total_cores=6)
+
+
+def total_wait_time(schedule: List[ScheduleEntry]) -> int:
+    # Sum waiting over all executions (repetitions included)
+    return sum(max(0, e.start_time - e.eligible_time) for e in schedule)
+
+
+def average_wait_per_execution(schedule: List[ScheduleEntry], extra_wait: int = 0) -> float:
+    total_execs = len(schedule)
+    total_wait = total_wait_time(schedule) + extra_wait
+    return (total_wait / total_execs) if total_execs > 0 else 0.0
+
+
+# After computing schedules and getting wait_extra_dyn/static
+avg_wait_dyn = average_wait_per_execution(schedule_dyn, wait_extra_dyn)
+avg_wait_static = average_wait_per_execution(
+    schedule_static, wait_extra_static)
+
+print(f"Average waiting time per execution (Dynamic): {avg_wait_dyn:.2f} ms")
+print(f"Average waiting time per execution (Static): {avg_wait_static:.2f} ms")
+
+
+print(
+    f"Total waiting time (Dynamic): {total_wait_time(schedule_dyn) + wait_extra_dyn} ms")
+print(
+    f"Total waiting time (Static): {total_wait_time(schedule_static) + wait_extra_static} ms")
