@@ -593,8 +593,8 @@ plot_schedule(schedule_to_log_data(schedule_dyn),
 # prevent cropping, fixed canvas
 fig_dyn.subplots_adjust(left=0.08, right=0.78, top=0.90, bottom=0.12)
 plt.show()
-fig_dyn.savefig('../../Images/backend/dynamic_long_fcfs.pdf',
-                format='pdf', dpi=1200)
+# fig_dyn.savefig('../../Images/backend/dynamic_long_fcfs.pdf',
+#                 format='pdf', dpi=1200)
 
 # Plot static schedule
 fig_static, ax_static = plt.subplots(1, 1, figsize=(19.20, 10.80), sharex=True)
@@ -603,5 +603,5 @@ plot_schedule(schedule_to_log_data(schedule_static),
               ax_static, consistent_color_mapping, total_cores=6)
 fig_static.subplots_adjust(left=0.08, right=0.78, top=0.90, bottom=0.12)
 plt.show()
-fig_static.savefig(
-    '../../Images/backend/static_long_fcfs.pdf', format='pdf', dpi=1200)
+# fig_static.savefig(
+#     '../../Images/backend/static_long_fcfs.pdf', format='pdf', dpi=1200)
