@@ -564,9 +564,9 @@ runnables_balanced = {
 
 # Re-run
 schedule_dyn, finish_dyn = run_main_scheduler(
-    runnables=runnables_balanced, num_cores=6, scheduling_policy="pas", allocation_policy="dynamic", I=3)
+    runnables=runnables_long_path, num_cores=6, scheduling_policy="pas", allocation_policy="dynamic", I=3)
 schedule_static, finish_static = run_main_scheduler(
-    runnables=runnables_balanced, num_cores=6, scheduling_policy="pas", allocation_policy="static", I=3)
+    runnables=runnables_long_path, num_cores=6, scheduling_policy="pas", allocation_policy="static", I=3)
 
 
 def schedule_to_log_data(schedule: List[ScheduleEntry]):
@@ -575,7 +575,7 @@ def schedule_to_log_data(schedule: List[ScheduleEntry]):
 
 # Create consistent color mapping
 all_runnables = set()
-for runnable in runnables_balanced.keys():
+for runnable in runnables_long_path.keys():
     all_runnables.add(runnable)
 all_runnables = sorted(all_runnables, key=lambda x: int(
     x[8:]) if x.startswith('Runnable') else float('inf'))
@@ -591,7 +591,7 @@ plot_schedule(schedule_to_log_data(schedule_dyn),
 plt.tight_layout()
 plt.show()
 
-fig_dyn.savefig('../../Images/dynamic_balanced_pas.pdf',
+fig_dyn.savefig('../../Images/dynamic_long_pas.pdf',
                 format='pdf', dpi=1200, bbox_inches='tight')
 
 # Plot static schedule
@@ -601,5 +601,5 @@ plot_schedule(schedule_to_log_data(schedule_static),
 plt.tight_layout()
 plt.show()
 
-fig_static.savefig('../../Images/static_balanced_pas.pdf',
+fig_static.savefig('../../Images/static_long_pas.pdf',
                    format='pdf', dpi=1200, bbox_inches='tight')
