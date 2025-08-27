@@ -355,8 +355,31 @@ def plot_schedule(log_data, title, ax):
     ax.set_xlabel("Time (ms)")
     ax.set_title(title)
     ax.grid(True, axis='x', linestyle='--', alpha=0.5)
-    handles = [mpatches.Patch(color=color, label=base_Runnable)
-               for base_Runnable, color in Runnable_colors.items()]
+
+    # Transform labels from "Runnable1" to "runnable 1" and sort numerically
+    def transform_label(label):
+        if label.startswith('Runnable'):
+            try:
+                # Remove "Runnable" prefix and convert to int
+                number = int(label[8:])
+                return f"runnable {number}"
+            except:
+                return label
+        return label
+
+    # Sort runnables numerically for the legend
+    def get_runnable_number(runnable):
+        if runnable.startswith('Runnable'):
+            try:
+                return int(runnable[8:])
+            except:
+                return float('inf')  # Put non-numeric runnables at the end
+        return float('inf')
+
+    sorted_runnables = sorted(base_Runnables, key=get_runnable_number)
+
+    handles = [mpatches.Patch(color=Runnable_colors[runnable], label=transform_label(runnable))
+               for runnable in sorted_runnables]
     ax.legend(handles=handles, bbox_to_anchor=(1.05, 1),
               loc='upper left', title="Runnables")
 
@@ -478,63 +501,68 @@ runnables = {
 
 runnables_long_path = {
     'Runnable1':  {'priority': 1, 'execution_time': 15, 'type': 'periodic', 'period': 100, 'deps': []},
-    'Runnable2':  {'priority': 2, 'execution_time': 20, 'type': 'periodic', 'period': 150, 'deps': []},
+    'Runnable2':  {'priority': 2, 'execution_time': 20, 'type': 'periodic', 'period': 180, 'deps': []},
 
     'Runnable3':  {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable1']},
     'Runnable4':  {'priority': 4, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable3']},
     'Runnable5':  {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable4']},
     'Runnable6':  {'priority': 1, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable5']},
+
     'Runnable7':  {'priority': 2, 'execution_time': 40, 'type': 'event', 'deps': ['Runnable6']},
     'Runnable8':  {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable7']},
     'Runnable9':  {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable8']},
     'Runnable10': {'priority': 4, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable9']},
+
     'Runnable11': {'priority': 2, 'execution_time': 45, 'type': 'event', 'deps': ['Runnable10']},
     'Runnable12': {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable11']},
     'Runnable13': {'priority': 3, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable12']},
+
     'Runnable14': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable13']},
     'Runnable15': {'priority': 3, 'execution_time': 40, 'type': 'event', 'deps': ['Runnable14']},
     'Runnable16': {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable15']},
+
     'Runnable17': {'priority': 4, 'execution_time': 50, 'type': 'event', 'deps': ['Runnable16']},
     'Runnable18': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable17']},
+
     'Runnable19': {'priority': 4, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable18']},
     'Runnable20': {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable19']},
 }
 
 runnables_balanced = {
-    'Runnable1':  {'priority': 1, 'execution_time': 20, 'type': 'periodic', 'period': 100, 'deps': []},
-    'Runnable2':  {'priority': 3, 'execution_time': 25, 'type': 'periodic', 'period': 180, 'deps': []},
+    'Runnable1':  {'priority': 1, 'execution_time': 15, 'type': 'periodic', 'period': 100, 'deps': []},
+    'Runnable2':  {'priority': 2, 'execution_time': 20, 'type': 'periodic', 'period': 180, 'deps': []},
 
-    'Runnable3':  {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable1']},
-    'Runnable4':  {'priority': 4, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable1']},
-    'Runnable5':  {'priority': 2, 'execution_time': 40, 'type': 'event', 'deps': ['Runnable2']},
-    'Runnable6':  {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable2']},
+    'Runnable3':  {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable1']},
+    'Runnable4':  {'priority': 4, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable1']},
+    'Runnable5':  {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable2']},
+    'Runnable6':  {'priority': 1, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable2']},
 
-    'Runnable7':  {'priority': 2, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable3', 'Runnable4']},
-    'Runnable8':  {'priority': 2, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable5', 'Runnable6']},
-    'Runnable9':  {'priority': 4, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable3']},
-    'Runnable10': {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable4']},
+    'Runnable7':  {'priority': 2, 'execution_time': 40, 'type': 'event', 'deps': ['Runnable3', 'Runnable4']},
+    'Runnable8':  {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable5', 'Runnable6']},
+    'Runnable9':  {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable3']},
+    'Runnable10': {'priority': 4, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable4']},
 
-    'Runnable11': {'priority': 1, 'execution_time': 40, 'type': 'event', 'deps': ['Runnable7']},
-    'Runnable12': {'priority': 3, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable8']},
-    'Runnable13': {'priority': 0, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable9', 'Runnable10']},
+    'Runnable11': {'priority': 2, 'execution_time': 45, 'type': 'event', 'deps': ['Runnable7']},
+    'Runnable12': {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable8']},
+    'Runnable13': {'priority': 3, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable9', 'Runnable10']},
 
-    'Runnable14': {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable11']},
-    'Runnable15': {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable12']},
-    'Runnable16': {'priority': 4, 'execution_time': 40, 'type': 'event', 'deps': ['Runnable13']},
+    'Runnable14': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable11']},
+    'Runnable15': {'priority': 3, 'execution_time': 40, 'type': 'event', 'deps': ['Runnable12']},
+    'Runnable16': {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable13']},
 
-    'Runnable17': {'priority': 1, 'execution_time': 45, 'type': 'event', 'deps': ['Runnable14', 'Runnable15']},
-    'Runnable18': {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable16']},
+    'Runnable17': {'priority': 4, 'execution_time': 50, 'type': 'event', 'deps': ['Runnable14', 'Runnable15']},
+    'Runnable18': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable16']},
 
-    'Runnable19': {'priority': 2, 'execution_time': 50, 'type': 'event', 'deps': ['Runnable17', 'Runnable18']},
-    'Runnable20': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable19']},
+    'Runnable19': {'priority': 4, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable17', 'Runnable18']},
+    'Runnable20': {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable19']},
 }
 
 
 # Re-run
 schedule_dyn, finish_dyn = run_main_scheduler(
-    runnables=runnables_long_path, num_cores=6, scheduling_policy="fcfs", allocation_policy="dynamic", I=None)
-# schedule_static, finish_static = run_main_scheduler(
-#     runnables=runnables_long_path, num_cores=6, scheduling_policy="fcfs", allocation_policy="static", I=None)
+    runnables=runnables_balanced, num_cores=6, scheduling_policy="pas", allocation_policy="dynamic", I=3)
+schedule_static, finish_static = run_main_scheduler(
+    runnables=runnables_balanced, num_cores=6, scheduling_policy="pas", allocation_policy="static", I=3)
 
 
 def schedule_to_log_data(schedule: List[ScheduleEntry]):
@@ -542,15 +570,21 @@ def schedule_to_log_data(schedule: List[ScheduleEntry]):
 
 
 # Plot dynamic schedule in its own figure
-fig_dyn, ax_dyn = plt.subplots(1, 1, figsize=(16, 5), sharex=True)
+fig_dyn, ax_dyn = plt.subplots(1, 1, figsize=(19.20, 10.80), sharex=True)
 plot_schedule(schedule_to_log_data(schedule_dyn),
-              f"Dynamic Allocation (PAS), finish @ {finish_dyn} ms", ax_dyn)
+              f"Dynamic Allocation (FCFS), finish @ {finish_dyn} ms", ax_dyn)
 plt.tight_layout()
 plt.show()
 
+fig_dyn.savefig('../../Images/dynamic_balanced_pas.pdf',
+                format='pdf', dpi=1200, bbox_inches='tight')
+
 # Plot static schedule in its own figure
-fig_static, ax_static = plt.subplots(1, 1, figsize=(16, 5), sharex=True)
+fig_static, ax_static = plt.subplots(1, 1, figsize=(19.20, 10.80), sharex=True)
 plot_schedule(schedule_to_log_data(schedule_static),
               f"Static Allocation (FCFS), finish @ {finish_static} ms", ax_static)
 plt.tight_layout()
 plt.show()
+
+fig_static.savefig('../../Images/static_balanced_pas.pdf',
+                   format='pdf', dpi=1200, bbox_inches='tight')
