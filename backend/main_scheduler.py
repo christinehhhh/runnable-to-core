@@ -619,3 +619,26 @@ total_static = count_executed_runnables(schedule_static)
 
 print(f"Total runnable executions (Dynamic): {total_dyn}")
 print(f"Total runnable executions (Static): {total_static}")
+
+
+def print_core_utilization(schedule: List[ScheduleEntry], finish_time: int, total_cores: int):
+    exec_time = {c: 0 for c in range(total_cores)}
+    for e in schedule:
+        exec_time[e.core] += (e.finish_time - e.start_time)
+
+    for c in range(total_cores):
+        util = (exec_time[c] / finish_time * 100) if finish_time > 0 else 0.0
+        print(
+            f"Core {c}: total execution time = {exec_time[c]} ms, utilization = {util:.2f}%")
+
+    avg_exec = sum(exec_time.values()) / total_cores
+    avg_util = (avg_exec / finish_time * 100) if finish_time > 0 else 0.0
+    print(f"Average execution time per core = {avg_exec:.2f} ms")
+    print(f"Average utilization = {avg_util:.2f}%")
+
+
+print("\nDynamic run core utilization:")
+print_core_utilization(schedule_dyn, finish_dyn, total_cores=6)
+
+print("\nStatic run core utilization:")
+print_core_utilization(schedule_static, finish_static, total_cores=6)
