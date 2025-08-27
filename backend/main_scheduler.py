@@ -346,10 +346,8 @@ def plot_schedule(log_data, title, ax, color_mapping=None, total_cores=None):
             i) for i, base_Runnable in enumerate(base_Runnables)}
 
     # Always include all cores if total_cores provided; otherwise, only used cores
-    if total_cores is not None:
-        cores = list(range(total_cores))
-    else:
-        cores = list(sorted(set(core for _, _, _, _, core in log_data)))
+    cores = list(range(total_cores)) if total_cores is not None else \
+        list(sorted(set(core for _, _, _, _, core in log_data)))
 
     y_positions = {core: i for i, core in enumerate(cores)}
 
@@ -358,7 +356,7 @@ def plot_schedule(log_data, title, ax, color_mapping=None, total_cores=None):
                 color=color_mapping[Runnable], edgecolor="black")
 
     ax.set_yticks(range(len(cores)))
-    ax.set_yticklabels([f"Core {core}" for core in cores])
+    ax.set_yticklabels([f"Core {core}" for core in cores], fontsize=14)
     ax.set_ylim(-0.5, len(cores) - 0.5)
     ax.set_xlabel("Time (ms)", fontsize=14)
     ax.set_title(title, fontsize=18)
@@ -567,9 +565,9 @@ runnables_balanced = {
 
 # Re-run
 schedule_dyn, finish_dyn = run_main_scheduler(
-    runnables=runnables_balanced, num_cores=6, scheduling_policy="fcfs", allocation_policy="dynamic", I=3)
+    runnables=runnables_long_path, num_cores=6, scheduling_policy="fcfs", allocation_policy="dynamic", I=3)
 schedule_static, finish_static = run_main_scheduler(
-    runnables=runnables_balanced, num_cores=6, scheduling_policy="fcfs", allocation_policy="static", I=3)
+    runnables=runnables_long_path, num_cores=6, scheduling_policy="fcfs", allocation_policy="static", I=3)
 
 
 def schedule_to_log_data(schedule: List[ScheduleEntry]):
@@ -578,7 +576,7 @@ def schedule_to_log_data(schedule: List[ScheduleEntry]):
 
 # Create consistent color mapping
 all_runnables = set()
-for runnable in runnables_balanced.keys():
+for runnable in runnables_long_path.keys():
     all_runnables.add(runnable)
 all_runnables = sorted(all_runnables, key=lambda x: int(
     x[8:]) if x.startswith('Runnable') else float('inf'))
@@ -592,19 +590,18 @@ fig_dyn, ax_dyn = plt.subplots(1, 1, figsize=(19.20, 10.80), sharex=True)
 plot_schedule(schedule_to_log_data(schedule_dyn),
               f"Dynamic Allocation (FCFS), finish @ {finish_dyn} ms",
               ax_dyn, consistent_color_mapping, total_cores=6)
-plt.tight_layout()
+# prevent cropping, fixed canvas
+fig_dyn.subplots_adjust(left=0.08, right=0.78, top=0.90, bottom=0.12)
 plt.show()
-
-fig_dyn.savefig('../../Images/backend/dynamic_balanced_fcfs.pdf',
-                format='pdf', dpi=1200, bbox_inches='tight')
+fig_dyn.savefig('../../Images/backend/dynamic_long_fcfs.pdf',
+                format='pdf', dpi=1200)
 
 # Plot static schedule
 fig_static, ax_static = plt.subplots(1, 1, figsize=(19.20, 10.80), sharex=True)
 plot_schedule(schedule_to_log_data(schedule_static),
               f"Static Allocation (FCFS), finish @ {finish_static} ms",
               ax_static, consistent_color_mapping, total_cores=6)
-plt.tight_layout()
+fig_static.subplots_adjust(left=0.08, right=0.78, top=0.90, bottom=0.12)
 plt.show()
-
-fig_static.savefig('../../Images/backend/static_balanced_fcfs.pdf',
-                   format='pdf', dpi=1200, bbox_inches='tight')
+fig_static.savefig(
+    '../../Images/backend/static_long_fcfs.pdf', format='pdf', dpi=1200)
