@@ -570,9 +570,9 @@ runnables_balanced = {
 
 # Re-run
 schedule_dyn, finish_dyn, wait_extra_dyn = run_main_scheduler(
-    runnables=runnables_long_path, num_cores=6, scheduling_policy="fcfs", allocation_policy="dynamic", I=3)
+    runnables=runnables_balanced, num_cores=1, scheduling_policy="fcfs", allocation_policy="dynamic", I=3)
 schedule_static, finish_static, wait_extra_static = run_main_scheduler(
-    runnables=runnables_long_path, num_cores=6, scheduling_policy="fcfs", allocation_policy="static", I=3)
+    runnables=runnables_balanced, num_cores=1, scheduling_policy="fcfs", allocation_policy="static", I=3)
 
 
 def schedule_to_log_data(schedule: List[ScheduleEntry]):
@@ -581,7 +581,7 @@ def schedule_to_log_data(schedule: List[ScheduleEntry]):
 
 # Create consistent color mapping
 all_runnables = set()
-for runnable in runnables_long_path.keys():
+for runnable in runnables_balanced.keys():
     all_runnables.add(runnable)
 all_runnables = sorted(all_runnables, key=lambda x: int(
     x[8:]) if x.startswith('Runnable') else float('inf'))
@@ -593,7 +593,7 @@ consistent_color_mapping = {runnable: color_palette(
 # Plot dynamic schedule
 fig_dyn, ax_dyn = plt.subplots(1, 1, figsize=(19.20, 10.80), sharex=True)
 plot_schedule(schedule_to_log_data(schedule_dyn),
-              f"Dynamic Allocation (FCFS), finish @ {finish_dyn} ms",
+              f"Dynamic Allocation (PAS), finish @ {finish_dyn} ms",
               ax_dyn, consistent_color_mapping, total_cores=6)
 # prevent cropping, fixed canvas
 fig_dyn.subplots_adjust(left=0.08, right=0.78, top=0.90, bottom=0.12)
@@ -604,7 +604,7 @@ fig_dyn.subplots_adjust(left=0.08, right=0.78, top=0.90, bottom=0.12)
 # Plot static schedule
 fig_static, ax_static = plt.subplots(1, 1, figsize=(19.20, 10.80), sharex=True)
 plot_schedule(schedule_to_log_data(schedule_static),
-              f"Static Allocation (FCFS), finish @ {finish_static} ms",
+              f"Static Allocation (PAS), finish @ {finish_static} ms",
               ax_static, consistent_color_mapping, total_cores=6)
 fig_static.subplots_adjust(left=0.08, right=0.78, top=0.90, bottom=0.12)
 # plt.show()
@@ -673,3 +673,19 @@ print(
     f"Total waiting time (Dynamic): {total_wait_time(schedule_dyn) + wait_extra_dyn} ms")
 print(
     f"Total waiting time (Static): {total_wait_time(schedule_static) + wait_extra_static} ms")
+
+
+def average_execution_time(schedule: List[ScheduleEntry]) -> float:
+    if not schedule:
+        return 0.0
+    total_exec_time = sum(e.finish_time - e.start_time for e in schedule)
+    return total_exec_time / len(schedule)
+
+
+# After computing schedules
+avg_exec_dyn = average_execution_time(schedule_dyn)
+avg_exec_static = average_execution_time(schedule_static)
+
+print(f"Average execution time per runnable (Dynamic): {avg_exec_dyn:.2f} ms")
+print(
+    f"Average execution time per runnable (Static): {avg_exec_static:.2f} ms")
