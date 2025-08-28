@@ -15,6 +15,7 @@ finite DAG-style schedule. Periodic runnables behave as sources with eta_i = 0.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from math import ceil, inf
 from typing import Dict, List, Optional, Tuple
@@ -250,8 +251,8 @@ def run_main_scheduler(
             running[(n, t)] = (finish, assigned_core)
             schedule.append(ScheduleEntry(
                 n, start, finish, assigned_core, eligible_time=t))
-            print(ScheduleEntry(
-                n, start, finish, assigned_core, eligible_time=t))
+            # print(ScheduleEntry(
+            #     n, start, finish, assigned_core, eligible_time=t))
             T_i = int(runnables[n].get("period", 0))
             next_active = t + T_i
             if T_i > 0 and next_active < T_end:
@@ -307,8 +308,8 @@ def run_main_scheduler(
                 running[(name, tau)] = (tau + t_i, core)
                 schedule.append(ScheduleEntry(
                     name, tau, tau + t_i, core, eligible_time=tau))
-                print(ScheduleEntry(
-                    name, tau, tau + t_i, core, eligible_time=tau))
+                # print(ScheduleEntry(
+                #     name, tau, tau + t_i, core, eligible_time=tau))
                 for p in predecessors[name]:
                     tokens[(p, name)] -= 1
 
@@ -567,12 +568,14 @@ runnables_balanced = {
     'Runnable20': {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable19']},
 }
 
+testing_runnables = runnables_balanced
+
 
 # Re-run
 schedule_dyn, finish_dyn, wait_extra_dyn = run_main_scheduler(
-    runnables=runnables_balanced, num_cores=1, scheduling_policy="fcfs", allocation_policy="dynamic", I=3)
+    testing_runnables, num_cores=2, scheduling_policy="fcfs", allocation_policy="dynamic", I=3)
 schedule_static, finish_static, wait_extra_static = run_main_scheduler(
-    runnables=runnables_balanced, num_cores=1, scheduling_policy="fcfs", allocation_policy="static", I=3)
+    testing_runnables, num_cores=2, scheduling_policy="fcfs", allocation_policy="static", I=3)
 
 
 def schedule_to_log_data(schedule: List[ScheduleEntry]):
@@ -581,7 +584,7 @@ def schedule_to_log_data(schedule: List[ScheduleEntry]):
 
 # Create consistent color mapping
 all_runnables = set()
-for runnable in runnables_balanced.keys():
+for runnable in runnables_long_path.keys():
     all_runnables.add(runnable)
 all_runnables = sorted(all_runnables, key=lambda x: int(
     x[8:]) if x.startswith('Runnable') else float('inf'))
@@ -689,3 +692,79 @@ avg_exec_static = average_execution_time(schedule_static)
 print(f"Average execution time per runnable (Dynamic): {avg_exec_dyn:.2f} ms")
 print(
     f"Average execution time per runnable (Static): {avg_exec_static:.2f} ms")
+
+
+# Sweep plots: Average waiting time vs Number of cores (FCFS vs PAS)
+sweep_cores = [1, 2, 3, 4, 5, 6]
+
+avg_waits_dynamic_fcfs = []
+avg_waits_dynamic_pas = []
+avg_waits_static_fcfs = []
+avg_waits_static_pas = []
+
+for cores in sweep_cores:
+    # Dynamic - FCFS
+    sched_d_fcfs, _, extra_d_fcfs = run_main_scheduler(
+        testing_runnables, num_cores=cores,
+        scheduling_policy="fcfs", allocation_policy="dynamic", I=3)
+    avg_d_fcfs = average_wait_per_execution(sched_d_fcfs, extra_d_fcfs)
+    avg_waits_dynamic_fcfs.append(avg_d_fcfs)
+
+    # Dynamic - PAS
+    sched_d_pas, _, extra_d_pas = run_main_scheduler(
+        testing_runnables, num_cores=cores,
+        scheduling_policy="pas", allocation_policy="dynamic", I=3)
+    avg_d_pas = average_wait_per_execution(sched_d_pas, extra_d_pas)
+    avg_waits_dynamic_pas.append(avg_d_pas)
+
+for cores in sweep_cores:
+    # Static - FCFS
+    sched_s_fcfs, _, extra_s_fcfs = run_main_scheduler(
+        testing_runnables, num_cores=cores,
+        scheduling_policy="fcfs", allocation_policy="static", I=3)
+    avg_s_fcfs = average_wait_per_execution(sched_s_fcfs, extra_s_fcfs)
+    avg_waits_static_fcfs.append(avg_s_fcfs)
+
+    # Static - PAS
+    sched_s_pas, _, extra_s_pas = run_main_scheduler(
+        testing_runnables, num_cores=cores,
+        scheduling_policy="pas", allocation_policy="static", I=3)
+    avg_s_pas = average_wait_per_execution(sched_s_pas, extra_s_pas)
+    avg_waits_static_pas.append(avg_s_pas)
+
+# Ensure output directory exists (match existing pattern ../../Images/backend/)
+output_dir = os.path.normpath(os.path.join(
+    os.path.dirname(__file__), '../../Images/backend'))
+os.makedirs(output_dir, exist_ok=True)
+
+# Plot dynamic sweep (FCFS vs PAS)
+plt.figure(figsize=(10, 6))
+plt.plot(sweep_cores, avg_waits_dynamic_fcfs,
+         marker='o', linewidth=2, label='FCFS')
+plt.plot(sweep_cores, avg_waits_dynamic_pas,
+         marker='s', linewidth=2, label='PAS')
+plt.xlabel('Number of cores', fontsize=14)
+plt.ylabel('Average waiting time (ms)', fontsize=14)
+plt.title('Dynamic allocation: Average waiting time vs Number of cores', fontsize=16)
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.legend()
+plt.tight_layout()
+plt.savefig(os.path.join(
+    output_dir, 'dynamic_avg_wait_vs_cores_fcfs_pas_balanced.pdf'), format='pdf', dpi=1200)
+# plt.show()
+
+# Plot static sweep (FCFS vs PAS)
+plt.figure(figsize=(10, 6))
+plt.plot(sweep_cores, avg_waits_static_fcfs,
+         marker='o', linewidth=2, label='FCFS')
+plt.plot(sweep_cores, avg_waits_static_pas,
+         marker='s', linewidth=2, label='PAS')
+plt.xlabel('Number of cores', fontsize=14)
+plt.ylabel('Average waiting time (ms)', fontsize=14)
+plt.title('Static allocation: Average waiting time vs Number of cores', fontsize=16)
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.legend()
+plt.tight_layout()
+plt.savefig(os.path.join(
+    output_dir, 'static_avg_wait_vs_cores_fcfs_pas_balanced.pdf'), format='pdf', dpi=1200)
+# plt.show()
