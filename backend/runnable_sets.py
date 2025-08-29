@@ -50,12 +50,18 @@ def generate_dependency_sets(
     base: Dict[str, Dict],
     num_sets: int = 50,
     seed: int = 2025,
+    long_critical_path_bias: float = 0.8,
+    balanced_bias: float = 0.2,
+    long_chain_probability: float = 0.5,
 ) -> List[Dict[str, Dict]]:
     rnd = random.Random(seed)
     ordered_names = _topological_name_order(list(base.keys()))
 
     sets: List[Dict[str, Dict]] = []
     for k in range(num_sets):
+        # Per-set mode: 50/50 long-chain vs balanced
+        use_long_chain = rnd.random() < long_chain_probability
+        chain_bias = long_critical_path_bias if use_long_chain else balanced_bias
         current: Dict[str, Dict] = {}
         for name in ordered_names:
             props = base[name]
@@ -72,15 +78,38 @@ def generate_dependency_sets(
                 # periodic sources have no deps
                 new_entry['deps'] = []
             else:
-                # choose 0-2 deps from earlier names to guarantee DAG
+                # choose deps from earlier names to guarantee DAG, with bias to form a long chain
                 earlier = [n for n in ordered_names if _topological_name_order([n, name])[
                     0] == n and n != name]
-                # filter to those already added
                 earlier = [n for n in earlier if n in current]
                 max_deps = 2
-                dep_count = rnd.choice([0, 1, 2]) if earlier else 0
-                dep_count = min(dep_count, max_deps, len(earlier))
-                deps = rnd.sample(earlier, dep_count)
+
+                # try to extend the immediate previous event node to build a long path
+                chain_dep = None
+                try:
+                    idx = ordered_names.index(name)
+                    j = idx - 1
+                    while j >= 0:
+                        cand = ordered_names[j]
+                        if cand in current and current[cand]['type'] != 'periodic':
+                            chain_dep = cand
+                            break
+                        j -= 1
+                except Exception:
+                    chain_dep = None
+
+                deps: List[str] = []
+                if chain_dep and rnd.random() < chain_bias:
+                    deps.append(chain_dep)
+
+                # Optionally add one more random earlier dep for some fan-in
+                pool = [n for n in earlier if n not in deps]
+                remaining_slots = max_deps - len(deps)
+                if remaining_slots > 0 and pool:
+                    dep_count = rnd.choice([0, 1])  # 0 or 1 extra
+                    dep_count = min(dep_count, remaining_slots, len(pool))
+                    deps.extend(rnd.sample(pool, dep_count))
+
                 new_entry['deps'] = deps
 
             current[name] = new_entry
@@ -118,6 +147,12 @@ def generate_dependency_sets(
     return unique_sets
 
 
-# Public: 50 sets ready to import
+# Public: 50 sets ready to import (50/50 long-chain vs balanced)
 RUNNABLE_SETS_50: List[Dict[str, Dict]] = generate_dependency_sets(
-    BASE_RUNNABLES_BALANCED, 50, seed=2025)
+    BASE_RUNNABLES_BALANCED,
+    50,
+    seed=2025,
+    long_critical_path_bias=0.85,
+    balanced_bias=0.2,
+    long_chain_probability=0.5,
+)
