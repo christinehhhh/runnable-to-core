@@ -206,7 +206,7 @@ def run_main_scheduler(
     idle_cores = list(range(num_cores))
 
     tau = 0
-    theta: Dict[str, int] = {}
+    phi: Dict[str, int] = {}
     next_active = 0
     eta: Dict[str, int] = {}
     start: Dict[str, int] = {}
@@ -214,7 +214,7 @@ def run_main_scheduler(
     schedule: List[ScheduleEntry] = []
     for name, props in runnables.items():
         if props.get("type") == "periodic" and int(props.get("period", 0)) > 0:
-            theta[name] = 0
+            phi[name] = 0
         else:
             eta[name] = 0
             start[name] = 0
@@ -223,7 +223,7 @@ def run_main_scheduler(
         (p, n): 0 for n in runnables for p in predecessors[n]}
 
     def get_periodic_at_tau(t: int) -> List[str]:
-        return sorted([n for n in theta if theta[n] == t])
+        return sorted([n for n in phi if phi[n] == t])
 
     def get_event_at_tau(t: int) -> List[str]:
         return [n for n, props in runnables.items() if props.get("type") != "periodic"
@@ -242,7 +242,7 @@ def run_main_scheduler(
                     tx = 0
                 total_delay += tx
                 start = t + tx
-                theta[n] = start
+                phi[n] = start
                 continue
             assigned_core = min(available_cores)
             available_cores.remove(assigned_core)
@@ -258,9 +258,9 @@ def run_main_scheduler(
             T_i = int(runnables[n].get("period", 0))
             next_active = t + T_i
             if T_i > 0 and next_active < T_end:
-                theta[n] = next_active
+                phi[n] = next_active
             else:
-                theta.pop(n, None)
+                phi.pop(n, None)
 
     total_delay = 0
     while tau < T_end:
@@ -296,10 +296,10 @@ def run_main_scheduler(
             if tau + t_i > T_end:
                 break
 
-            if theta and start[name] + t_i > next_active and start[name] <= tau:
-                first_theta_key = min(theta.keys())
+            if phi and start[name] + t_i > next_active and start[name] <= tau:
+                first_phi_key = min(phi.keys())
                 delayed_start_time = next_active + \
-                    runnables[first_theta_key]["execution_time"]
+                    runnables[first_phi_key]["execution_time"]
                 total_delay += delayed_start_time - start[name]
                 start[name] = delayed_start_time
             else:
@@ -317,7 +317,7 @@ def run_main_scheduler(
 
         next_fin = min((fin for (fin, _) in running.values()), default=None)
         # strictly greater than tau
-        next_active = min((t for t in theta.values() if t > tau), default=inf)
+        next_active = min((t for t in phi.values() if t > tau), default=inf)
         next_decision_point = [t for t in [
             next_fin, next_active] if t is not None]
         if not next_decision_point:
@@ -603,7 +603,7 @@ if False:
                   f"Dynamic Allocation (PAS), finish @ {finish_dyn} ms",
                   ax_dyn, consistent_color_mapping, total_cores=6)
     fig_dyn.subplots_adjust(left=0.08, right=0.78, top=0.90, bottom=0.12)
-    # plt.show()
+    plt.show()
 
 if False:
     # Plot static schedule (disabled; we will show only sweep plots)
@@ -613,7 +613,7 @@ if False:
                   f"Static Allocation (PAS), finish @ {finish_static} ms",
                   ax_static, consistent_color_mapping, total_cores=6)
     fig_static.subplots_adjust(left=0.08, right=0.78, top=0.90, bottom=0.12)
-    # plt.show()
+    plt.show()
 
 # Count total runnables executed
 
