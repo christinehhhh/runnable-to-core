@@ -22,8 +22,6 @@ from typing import Dict, List, Optional, Tuple
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-from runnable_sets import RUNNABLE_SETS_50
-import json
 
 
 @dataclass
@@ -572,13 +570,11 @@ runnables_balanced = {
 
 testing_runnables = runnables_balanced
 
-
-if False:
-    # Re-run (disabled to only show sweep plots later)
-    schedule_dyn, finish_dyn, wait_extra_dyn = run_main_scheduler(
-        testing_runnables, num_cores=2, scheduling_policy="fcf  s", allocation_policy="dynamic", I=3)
-    schedule_static, finish_static, wait_extra_static = run_main_scheduler(
-        testing_runnables, num_cores=2, scheduling_policy="fcfs", allocation_policy="static", I=3)
+# Re-run (disabled to only show sweep plots later)
+schedule_dyn, finish_dyn, wait_extra_dyn = run_main_scheduler(
+    testing_runnables, num_cores=6, scheduling_policy="fcf  s", allocation_policy="dynamic", I=3)
+schedule_static, finish_static, wait_extra_static = run_main_scheduler(
+    testing_runnables, num_cores=6, scheduling_policy="fcfs", allocation_policy="static", I=3)
 
 
 def schedule_to_log_data(schedule: List[ScheduleEntry]):
@@ -596,24 +592,22 @@ color_palette = plt.cm.get_cmap("tab20", len(all_runnables))
 consistent_color_mapping = {runnable: color_palette(
     i) for i, runnable in enumerate(all_runnables)}
 
-if False:
-    # Plot dynamic schedule (disabled; we will show only sweep plots)
-    fig_dyn, ax_dyn = plt.subplots(1, 1, figsize=(19.20, 10.80), sharex=True)
-    plot_schedule(schedule_to_log_data(schedule_dyn),
-                  f"Dynamic Allocation (PAS), finish @ {finish_dyn} ms",
-                  ax_dyn, consistent_color_mapping, total_cores=6)
-    fig_dyn.subplots_adjust(left=0.08, right=0.78, top=0.90, bottom=0.12)
-    plt.show()
+# Plot dynamic schedule (disabled; we will show only sweep plots)
+fig_dyn, ax_dyn = plt.subplots(1, 1, figsize=(19.20, 10.80), sharex=True)
+plot_schedule(schedule_to_log_data(schedule_dyn),
+              f"Dynamic Allocation (PAS), finish @ {finish_dyn} ms",
+              ax_dyn, consistent_color_mapping, total_cores=6)
+fig_dyn.subplots_adjust(left=0.08, right=0.78, top=0.90, bottom=0.12)
+plt.show()
 
-if False:
-    # Plot static schedule (disabled; we will show only sweep plots)
-    fig_static, ax_static = plt.subplots(
-        1, 1, figsize=(19.20, 10.80), sharex=True)
-    plot_schedule(schedule_to_log_data(schedule_static),
-                  f"Static Allocation (PAS), finish @ {finish_static} ms",
-                  ax_static, consistent_color_mapping, total_cores=6)
-    fig_static.subplots_adjust(left=0.08, right=0.78, top=0.90, bottom=0.12)
-    plt.show()
+# Plot static schedule (disabled; we will show only sweep plots)
+fig_static, ax_static = plt.subplots(
+    1, 1, figsize=(19.20, 10.80), sharex=True)
+plot_schedule(schedule_to_log_data(schedule_static),
+              f"Static Allocation (PAS), finish @ {finish_static} ms",
+              ax_static, consistent_color_mapping, total_cores=6)
+fig_static.subplots_adjust(left=0.08, right=0.78, top=0.90, bottom=0.12)
+plt.show()
 
 # Count total runnables executed
 
@@ -621,15 +615,12 @@ if False:
 def count_executed_runnables(schedule):
     return len(schedule)  # Each entry in schedule is one execution
 
-
-if False:
     # After your scheduling calls
-    total_dyn = count_executed_runnables(schedule_dyn)
-    total_static = count_executed_runnables(schedule_static)
+total_dyn = count_executed_runnables(schedule_dyn)
+total_static = count_executed_runnables(schedule_static)
 
-if False:
-    print(f"Total runnable executions (Dynamic): {total_dyn}")
-    print(f"Total runnable executions (Static): {total_static}")
+print(f"Total runnable executions (Dynamic): {total_dyn}")
+print(f"Total runnable executions (Static): {total_static}")
 
 
 def print_core_utilization(schedule: List[ScheduleEntry], finish_time: int, total_cores: int):
@@ -647,8 +638,6 @@ def print_core_utilization(schedule: List[ScheduleEntry], finish_time: int, tota
     print(f"Average execution time per core = {avg_exec:.2f} ms")
     print(f"Average utilization = {avg_util:.2f}%")
 
-
-if False:
     print("\nDynamic run core utilization:")
     print_core_utilization(schedule_dyn, finish_dyn, total_cores=6)
     print("\nStatic run core utilization:")
@@ -665,25 +654,20 @@ def average_wait_per_execution(schedule: List[ScheduleEntry], extra_wait: int = 
     total_wait = total_wait_time(schedule) + extra_wait
     return (total_wait / total_execs) if total_execs > 0 else 0.0
 
-
-if False:
     # After computing schedules and getting wait_extra_dyn/static
-    avg_wait_dyn = average_wait_per_execution(schedule_dyn, wait_extra_dyn)
-    avg_wait_static = average_wait_per_execution(
-        schedule_static, wait_extra_static)
+avg_wait_dyn = average_wait_per_execution(schedule_dyn, wait_extra_dyn)
+avg_wait_static = average_wait_per_execution(
+    schedule_static, wait_extra_static)
 
-if False:
-    print(
-        f"Average waiting time per execution (Dynamic): {avg_wait_dyn:.2f} ms")
-    print(
-        f"Average waiting time per execution (Static): {avg_wait_static:.2f} ms")
+print(
+    f"Average waiting time per execution (Dynamic): {avg_wait_dyn:.2f} ms")
+print(
+    f"Average waiting time per execution (Static): {avg_wait_static:.2f} ms")
 
-
-if False:
-    print(
-        f"Total waiting time (Dynamic): {total_wait_time(schedule_dyn) + wait_extra_dyn} ms")
-    print(
-        f"Total waiting time (Static): {total_wait_time(schedule_static) + wait_extra_static} ms")
+print(
+    f"Total waiting time (Dynamic): {total_wait_time(schedule_dyn) + wait_extra_dyn} ms")
+print(
+    f"Total waiting time (Static): {total_wait_time(schedule_static) + wait_extra_static} ms")
 
 
 def average_execution_time(schedule: List[ScheduleEntry]) -> float:
@@ -693,33 +677,17 @@ def average_execution_time(schedule: List[ScheduleEntry]) -> float:
     return total_exec_time / len(schedule)
 
 
-if False:
     # After computing schedules
-    avg_exec_dyn = average_execution_time(schedule_dyn)
-    avg_exec_static = average_execution_time(schedule_static)
+avg_exec_dyn = average_execution_time(schedule_dyn)
+avg_exec_static = average_execution_time(schedule_static)
 
-if False:
-    print(
-        f"Average execution time per runnable (Dynamic): {avg_exec_dyn:.2f} ms")
-    print(
-        f"Average execution time per runnable (Static): {avg_exec_static:.2f} ms")
+print(
+    f"Average execution time per runnable (Dynamic): {avg_exec_dyn:.2f} ms")
+print(
+    f"Average execution time per runnable (Static): {avg_exec_static:.2f} ms")
 
 
 # Ensure output directory exists (match existing pattern ../../Images/backend/)
 output_dir = os.path.normpath(os.path.join(
     os.path.dirname(__file__), '../../Images/backend'))
 os.makedirs(output_dir, exist_ok=True)
-
-
-def _load_runnable_sets_from_json(dir_path: str):
-    try:
-        files = [f for f in os.listdir(dir_path) if f.endswith('.json')]
-        files.sort()
-        sets = []
-        for fname in files:
-            fpath = os.path.join(dir_path, fname)
-            with open(fpath, 'r') as f:
-                sets.append(json.load(f))
-        return sets
-    except Exception:
-        return []
