@@ -1,16 +1,16 @@
 """General main scheduling algorithm with FCFS/PAS ordering and static/dynamic
 core allocation, following the provided pseudocode.
 
-Data model assumptions for `runnables` input:
-- Dict[str, Dict]: each runnable has keys:
+Data model assumptions for `tasks` input:
+- Dict[str, Dict]: each task has keys:
   - 'type': 'periodic' or 'event'
   - 'execution_time': int (t_i)
   - 'period': int (T_i) for periodic only (optional for event)
-  - 'deps': List[str] (predecessor runnable names), optional
+  - 'deps': List[str] (predecessor task names), optional
   - 'priority': int used as priority p_i for PAS (default 0)
 
-This scheduler treats a single instance of each runnable per iteration, i.e., a
-finite DAG-style schedule. Periodic runnables behave as sources with eta_i = 0.
+This scheduler treats a single instance of each task per iteration, i.e., a
+finite DAG-style schedule. Periodic tasks behave as sources with eta_i = 0.
 """
 
 from __future__ import annotations
@@ -26,29 +26,29 @@ import matplotlib.pyplot as plt
 
 @dataclass
 class ScheduleEntry:
-    runnable: str
+    task: str
     start_time: int
     finish_time: int
     core: int
     eligible_time: int
 
 
-def topology(runnables: Dict[str, Dict]) -> Tuple[Dict[str, List[str]], Dict[str, List[str]]]:
-    successors: Dict[str, List[str]] = {name: [] for name in runnables}
-    predecessors: Dict[str, List[str]] = {name: [] for name in runnables}
-    for name, props in runnables.items():
+def topology(tasks: Dict[str, Dict]) -> Tuple[Dict[str, List[str]], Dict[str, List[str]]]:
+    successors: Dict[str, List[str]] = {name: [] for name in tasks}
+    predecessors: Dict[str, List[str]] = {name: [] for name in tasks}
+    for name, props in tasks.items():
         for dep in props.get("deps", []) or []:
-            if dep in runnables:
+            if dep in tasks:
                 successors[dep].append(name)
                 predecessors[name].append(dep)
     return successors, predecessors
 
 
-def order_eligible(eligible: List[str], runnables: Dict[str, Dict], eta: Dict[str, int], policy: str) -> List[str]:
+def order_eligible(eligible: List[str], tasks: Dict[str, Dict], eta: Dict[str, int], policy: str) -> List[str]:
     policy = policy.lower()
     if policy == "pas":
         def key_fn(name: str):
-            p_i = int(runnables[name].get("priority", 0))
+            p_i = int(tasks[name].get("priority", 0))
             return (-p_i, int(eta.get(name, 0)), name)
         return sorted(eligible, key=key_fn)
     # fcfs
@@ -65,43 +65,43 @@ def dynamic_allocation(idle_cores: List[int], eligible: List[str]) -> Tuple[int,
     return idle_cores[:c_alloc]
 
 
-def compute_total_work(runnables: Dict[str, Dict]) -> int:
+def compute_total_work(tasks: Dict[str, Dict]) -> int:
     return sum(int(props.get("execution_time", 0))
-               for props in runnables.values())
+               for props in tasks.values())
 
 
-def compute_parallelism_bounds(runnables: Dict[str, Dict], num_cores: int) -> Tuple[int, int]:
+def compute_parallelism_bounds(tasks: Dict[str, Dict], num_cores: int) -> Tuple[int, int]:
     """Compute (W, T_CP, P_max_approx). Uses a relaxed approximation for P_max: number of sources."""
-    successors, predecessors = topology(runnables)
+    successors, predecessors = topology(tasks)
     # Total work W (one instance per node baseline)
-    W = compute_total_work(runnables)
+    W = compute_total_work(tasks)
     # Critical path via longest path DP on DAG of single-shot graph
-    # (For periodic Runnables, treat as sources with EST=0)
-    runnable_path_length: Dict[str, int] = {}
-    remaining_runnables = set(runnables.keys())
-    while remaining_runnables:
+    # (For periodic Tasks, treat as sources with EST=0)
+    task_path_length: Dict[str, int] = {}
+    remaining_tasks = set(tasks.keys())
+    while remaining_tasks:
         progressed = False
-        for name in list(remaining_runnables):
-            if all(p in runnable_path_length for p in predecessors[name]):
-                runnable_path_length[name] = max((runnable_path_length[p] + int(runnables[p]["execution_time"])
+        for name in list(remaining_tasks):
+            if all(p in task_path_length for p in predecessors[name]):
+                task_path_length[name] = max((task_path_length[p] + int(tasks[p]["execution_time"])
                                                   for p in predecessors[name]), default=0)
-                remaining_runnables.remove(name)
+                remaining_tasks.remove(name)
                 progressed = True
         if not progressed:
             # Cycles (shouldn't happen in a DAG); break conservatively
             break
-    T_CP = max((runnable_path_length[n] + int(runnables[n]["execution_time"])
-               for n in runnable_path_length), default=0)
+    T_CP = max((task_path_length[n] + int(tasks[n]["execution_time"])
+               for n in task_path_length), default=0)
     # Approx P_max: max number of simultaneously ready sources after releases -> count of nodes with no preds
 
     def calculate_max_parallelism() -> int:
-        """Calculate P_max by finding the maximum number of eligible runnables at any time."""
+        """Calculate P_max by finding the maximum number of eligible tasks at any time."""
         max_parallelism = 0
         completed = set()
         eligible = set()
 
-        # Initially eligible: Runnables with no dependencies or periodic sources
-        for name, props in runnables.items():
+        # Initially eligible: Tasks with no dependencies or periodic sources
+        for name, props in tasks.items():
             deps = props.get("deps", []) or []
             if props.get("type") == "periodic" or len(deps) == 0:
                 eligible.add(name)
@@ -109,18 +109,18 @@ def compute_parallelism_bounds(runnables: Dict[str, Dict], num_cores: int) -> Tu
         max_parallelism = max(max_parallelism, len(eligible))
 
         while eligible:
-            # Execute all eligible Runnables simultaneously (unlimited cores)
-            Runnables_to_execute = list(eligible)
+            # Execute all eligible Tasks simultaneously (unlimited cores)
+            Tasks_to_execute = list(eligible)
             eligible.clear()
-            completed.update(Runnables_to_execute)
+            completed.update(Tasks_to_execute)
 
-            # Find new eligible Runnables
+            # Find new eligible Tasks
             newly_eligible = set()
-            for Runnable in Runnables_to_execute:
-                for succ in successors.get(Runnable, []):
+            for Task in Tasks_to_execute:
+                for succ in successors.get(Task, []):
                     if succ in completed or succ in newly_eligible:
                         continue
-                    preds = runnables.get(succ, {}).get("deps", []) or []
+                    preds = tasks.get(succ, {}).get("deps", []) or []
                     if all(p in completed for p in preds):
                         newly_eligible.add(succ)
 
@@ -173,7 +173,7 @@ def compute_parallelism_bounds(runnables: Dict[str, Dict], num_cores: int) -> Tu
 
 
 def run_main_scheduler(
-    runnables: Dict[str, Dict],
+    tasks: Dict[str, Dict],
     num_cores: int,
     scheduling_policy: str = "fcfs",
     allocation_policy: str = "dynamic",
@@ -186,15 +186,15 @@ def run_main_scheduler(
     - makespans: list of iteration total times
     """
 
-    successors, predecessors = topology(runnables)
+    successors, predecessors = topology(tasks)
 
-    total_work = compute_total_work(runnables)
+    total_work = compute_total_work(tasks)
     if I is None:
         T_end = 2 * total_work
     else:
         T_end = I * total_work
 
-    p_max, n_min = compute_parallelism_bounds(runnables, num_cores)
+    p_max, n_min = compute_parallelism_bounds(tasks, num_cores)
 
     if allocation_policy.lower() == "static":
         available_cores = static_allocation(num_cores, p_max, n_min)
@@ -210,7 +210,7 @@ def run_main_scheduler(
     start: Dict[str, int] = {}
     running: Dict[Tuple[str, int], Tuple[int, int]] = {}
     schedule: List[ScheduleEntry] = []
-    for name, props in runnables.items():
+    for name, props in tasks.items():
         if props.get("type") == "periodic" and int(props.get("period", 0)) > 0:
             phi[name] = 0
         else:
@@ -218,13 +218,13 @@ def run_main_scheduler(
             start[name] = 0
 
     tokens: Dict[Tuple[str, str], int] = {
-        (p, n): 0 for n in runnables for p in predecessors[n]}
+        (p, n): 0 for n in tasks for p in predecessors[n]}
 
     def get_periodic_at_tau(t: int) -> List[str]:
         return sorted([n for n in phi if phi[n] == t])
 
     def get_event_at_tau(t: int) -> List[str]:
-        return [n for n, props in runnables.items() if props.get("type") != "periodic"
+        return [n for n, props in tasks.items() if props.get("type") != "periodic"
                 and all(tokens[(p, n)] > 0 for p in predecessors[n])
                 and start[n] <= t]
 
@@ -245,7 +245,7 @@ def run_main_scheduler(
             assigned_core = min(available_cores)
             available_cores.remove(assigned_core)
             idle_cores.remove(assigned_core)
-            t_i = int(runnables[n]["execution_time"])
+            t_i = int(tasks[n]["execution_time"])
             start = t
             finish = t + t_i
             running[(n, t)] = (finish, assigned_core)
@@ -253,7 +253,7 @@ def run_main_scheduler(
                 n, start, finish, assigned_core, eligible_time=t))
             # print(ScheduleEntry(
             #     n, start, finish, assigned_core, eligible_time=t))
-            T_i = int(runnables[n].get("period", 0))
+            T_i = int(tasks[n].get("period", 0))
             next_active = t + T_i
             if T_i > 0 and next_active < T_end:
                 phi[n] = next_active
@@ -270,10 +270,10 @@ def run_main_scheduler(
 
         periodic_at_tau = get_periodic_at_tau(tau)
 
-        ordered_eligible_periodic = order_eligible(periodic_at_tau, runnables, {
+        ordered_eligible_periodic = order_eligible(periodic_at_tau, tasks, {
             e: tau for e in periodic_at_tau}, scheduling_policy)
 
-        ordered_eligible_event = order_eligible(eligible_event, runnables, {
+        ordered_eligible_event = order_eligible(eligible_event, tasks, {
             e: eta[e] for e in eligible_event}, scheduling_policy)
 
         eligible = ordered_eligible_periodic + ordered_eligible_event
@@ -289,7 +289,7 @@ def run_main_scheduler(
             if not sorted_available_cores:
                 break
 
-            t_i = int(runnables[name]["execution_time"])
+            t_i = int(tasks[name]["execution_time"])
 
             if tau + t_i > T_end:
                 break
@@ -297,7 +297,7 @@ def run_main_scheduler(
             if phi and start[name] + t_i > next_active and start[name] <= tau:
                 first_phi_key = min(phi.keys())
                 delayed_start_time = next_active + \
-                    runnables[first_phi_key]["execution_time"]
+                    tasks[first_phi_key]["execution_time"]
                 total_delay += delayed_start_time - start[name]
                 start[name] = delayed_start_time
             else:
@@ -344,12 +344,12 @@ def run_main_scheduler(
 
 
 def plot_schedule(log_data, title, ax, color_mapping=None, total_cores=None):
-    base_Runnables = sorted(set(Runnable for _, _, Runnable, _, _ in log_data))
+    base_Tasks = sorted(set(Task for _, _, Task, _, _ in log_data))
 
     if color_mapping is None:
-        color_palette = plt.cm.get_cmap("tab20", len(base_Runnables))
-        color_mapping = {base_Runnable: color_palette(
-            i) for i, base_Runnable in enumerate(base_Runnables)}
+        color_palette = plt.cm.get_cmap("tab20", len(base_Tasks))
+        color_mapping = {base_Task: color_palette(
+            i) for i, base_Task in enumerate(base_Tasks)}
 
     # Always include all cores if total_cores provided; otherwise, only used cores
     cores = list(range(total_cores)) if total_cores is not None else \
@@ -357,9 +357,9 @@ def plot_schedule(log_data, title, ax, color_mapping=None, total_cores=None):
 
     y_positions = {core: i for i, core in enumerate(cores)}
 
-    for start, end, Runnable, release, core in log_data:
+    for start, end, Task, release, core in log_data:
         ax.barh(y_positions[core], end - start, left=start,
-                color=color_mapping[Runnable], edgecolor="black")
+                color=color_mapping[Task], edgecolor="black")
 
     ax.set_yticks(range(len(cores)))
     ax.set_yticklabels([f"Core {core}" for core in cores], fontsize=14)
@@ -370,33 +370,33 @@ def plot_schedule(log_data, title, ax, color_mapping=None, total_cores=None):
     ax.grid(True, axis='x', linestyle='--', alpha=0.5)
 
     def transform_label(label):
-        if label.startswith('Runnable'):
+        if label.startswith('Task'):
             try:
-                number = int(label[8:])
-                return f"runnable {number}"
+                number = int(label[4:])
+                return f"task {number}"
             except:
                 return label
         return label
 
-    def get_runnable_number(runnable):
-        if runnable.startswith('Runnable'):
+    def get_task_number(task):
+        if task.startswith('Task'):
             try:
-                return int(runnable[8:])
+                return int(task[4:])
             except:
                 return float('inf')
         return float('inf')
 
-    sorted_runnables = sorted(base_Runnables, key=get_runnable_number)
-    handles = [mpatches.Patch(color=color_mapping[runnable], label=transform_label(runnable))
-               for runnable in sorted_runnables]
+    sorted_tasks = sorted(base_Tasks, key=get_task_number)
+    handles = [mpatches.Patch(color=color_mapping[task], label=transform_label(task))
+               for task in sorted_tasks]
     ax.legend(handles=handles, bbox_to_anchor=(1.05, 1),
-              loc='upper left', title="Runnables", fontsize=14, title_fontsize=18)
+              loc='upper left', title="Tasks", fontsize=14, title_fontsize=18)
 
     return color_mapping
 
 
-# Example runnables
-runnables = {
+# Example tasks
+tasks = {
     'RadarCapture': {
         'priority': 1,
         'period': 75,
@@ -510,87 +510,87 @@ runnables = {
     # },
 }
 
-runnables_long_path = {
-    'Runnable1':  {'priority': 1, 'execution_time': 15, 'type': 'periodic', 'period': 100, 'deps': []},
-    'Runnable2':  {'priority': 2, 'execution_time': 20, 'type': 'periodic', 'period': 180, 'deps': []},
+tasks_long_path = {
+    'Task1':  {'priority': 1, 'execution_time': 15, 'type': 'periodic', 'period': 100, 'deps': []},
+    'Task2':  {'priority': 2, 'execution_time': 20, 'type': 'periodic', 'period': 180, 'deps': []},
 
-    'Runnable3':  {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable1']},
-    'Runnable4':  {'priority': 4, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable3']},
-    'Runnable5':  {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable4']},
-    'Runnable6':  {'priority': 1, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable5']},
+    'Task3':  {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Task1']},
+    'Task4':  {'priority': 4, 'execution_time': 30, 'type': 'event', 'deps': ['Task3']},
+    'Task5':  {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Task4']},
+    'Task6':  {'priority': 1, 'execution_time': 35, 'type': 'event', 'deps': ['Task5']},
 
-    'Runnable7':  {'priority': 2, 'execution_time': 40, 'type': 'event', 'deps': ['Runnable6']},
-    'Runnable8':  {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable7']},
-    'Runnable9':  {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable8']},
-    'Runnable10': {'priority': 4, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable9']},
+    'Task7':  {'priority': 2, 'execution_time': 40, 'type': 'event', 'deps': ['Task6']},
+    'Task8':  {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Task7']},
+    'Task9':  {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Task8']},
+    'Task10': {'priority': 4, 'execution_time': 20, 'type': 'event', 'deps': ['Task9']},
 
-    'Runnable11': {'priority': 2, 'execution_time': 45, 'type': 'event', 'deps': ['Runnable10']},
-    'Runnable12': {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable11']},
-    'Runnable13': {'priority': 3, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable12']},
+    'Task11': {'priority': 2, 'execution_time': 45, 'type': 'event', 'deps': ['Task10']},
+    'Task12': {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Task11']},
+    'Task13': {'priority': 3, 'execution_time': 35, 'type': 'event', 'deps': ['Task12']},
 
-    'Runnable14': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable13']},
-    'Runnable15': {'priority': 3, 'execution_time': 40, 'type': 'event', 'deps': ['Runnable14']},
-    'Runnable16': {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable15']},
+    'Task14': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Task13']},
+    'Task15': {'priority': 3, 'execution_time': 40, 'type': 'event', 'deps': ['Task14']},
+    'Task16': {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Task15']},
 
-    'Runnable17': {'priority': 4, 'execution_time': 50, 'type': 'event', 'deps': ['Runnable16']},
-    'Runnable18': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable17']},
+    'Task17': {'priority': 4, 'execution_time': 50, 'type': 'event', 'deps': ['Task16']},
+    'Task18': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Task17']},
 
-    'Runnable19': {'priority': 4, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable18']},
-    'Runnable20': {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable19']},
+    'Task19': {'priority': 4, 'execution_time': 35, 'type': 'event', 'deps': ['Task18']},
+    'Task20': {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Task19']},
 }
 
-runnables_balanced = {
-    'Runnable1':  {'priority': 1, 'execution_time': 15, 'type': 'periodic', 'period': 100, 'deps': []},
-    'Runnable2':  {'priority': 2, 'execution_time': 20, 'type': 'periodic', 'period': 180, 'deps': []},
+tasks_balanced = {
+    'Task1':  {'priority': 1, 'execution_time': 15, 'type': 'periodic', 'period': 100, 'deps': []},
+    'Task2':  {'priority': 2, 'execution_time': 20, 'type': 'periodic', 'period': 180, 'deps': []},
 
-    'Runnable3':  {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable1']},
-    'Runnable4':  {'priority': 4, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable1']},
-    'Runnable5':  {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable2']},
-    'Runnable6':  {'priority': 1, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable2']},
+    'Task3':  {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Task1']},
+    'Task4':  {'priority': 4, 'execution_time': 30, 'type': 'event', 'deps': ['Task1']},
+    'Task5':  {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Task2']},
+    'Task6':  {'priority': 1, 'execution_time': 35, 'type': 'event', 'deps': ['Task2']},
 
-    'Runnable7':  {'priority': 2, 'execution_time': 40, 'type': 'event', 'deps': ['Runnable3', 'Runnable4']},
-    'Runnable8':  {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable5', 'Runnable6']},
-    'Runnable9':  {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable3']},
-    'Runnable10': {'priority': 4, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable4']},
+    'Task7':  {'priority': 2, 'execution_time': 40, 'type': 'event', 'deps': ['Task3', 'Task4']},
+    'Task8':  {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Task5', 'Task6']},
+    'Task9':  {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Task3']},
+    'Task10': {'priority': 4, 'execution_time': 20, 'type': 'event', 'deps': ['Task4']},
 
-    'Runnable11': {'priority': 2, 'execution_time': 45, 'type': 'event', 'deps': ['Runnable7']},
-    'Runnable12': {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable8']},
-    'Runnable13': {'priority': 3, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable9', 'Runnable10']},
+    'Task11': {'priority': 2, 'execution_time': 45, 'type': 'event', 'deps': ['Task7']},
+    'Task12': {'priority': 0, 'execution_time': 30, 'type': 'event', 'deps': ['Task8']},
+    'Task13': {'priority': 3, 'execution_time': 35, 'type': 'event', 'deps': ['Task9', 'Task10']},
 
-    'Runnable14': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable11']},
-    'Runnable15': {'priority': 3, 'execution_time': 40, 'type': 'event', 'deps': ['Runnable12']},
-    'Runnable16': {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Runnable13']},
+    'Task14': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Task11']},
+    'Task15': {'priority': 3, 'execution_time': 40, 'type': 'event', 'deps': ['Task12']},
+    'Task16': {'priority': 3, 'execution_time': 20, 'type': 'event', 'deps': ['Task13']},
 
-    'Runnable17': {'priority': 4, 'execution_time': 50, 'type': 'event', 'deps': ['Runnable14', 'Runnable15']},
-    'Runnable18': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Runnable16']},
+    'Task17': {'priority': 4, 'execution_time': 50, 'type': 'event', 'deps': ['Task14', 'Task15']},
+    'Task18': {'priority': 1, 'execution_time': 25, 'type': 'event', 'deps': ['Task16']},
 
-    'Runnable19': {'priority': 4, 'execution_time': 35, 'type': 'event', 'deps': ['Runnable17', 'Runnable18']},
-    'Runnable20': {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Runnable19']},
+    'Task19': {'priority': 4, 'execution_time': 35, 'type': 'event', 'deps': ['Task17', 'Task18']},
+    'Task20': {'priority': 2, 'execution_time': 30, 'type': 'event', 'deps': ['Task19']},
 }
 
-testing_runnables = runnables_balanced
+testing_tasks = tasks_balanced
 
 # Re-run (disabled to only show sweep plots later)
 schedule_dyn, finish_dyn, wait_extra_dyn = run_main_scheduler(
-    testing_runnables, num_cores=6, scheduling_policy="fcf  s", allocation_policy="dynamic", I=3)
+    testing_tasks, num_cores=6, scheduling_policy="fcf  s", allocation_policy="dynamic", I=3)
 schedule_static, finish_static, wait_extra_static = run_main_scheduler(
-    testing_runnables, num_cores=6, scheduling_policy="fcfs", allocation_policy="static", I=3)
+    testing_tasks, num_cores=6, scheduling_policy="fcfs", allocation_policy="static", I=3)
 
 
 def schedule_to_log_data(schedule: List[ScheduleEntry]):
-    return [(e.start_time, e.finish_time, e.runnable, e.eligible_time, e.core) for e in schedule]
+    return [(e.start_time, e.finish_time, e.task, e.eligible_time, e.core) for e in schedule]
 
 
 # Create consistent color mapping
-all_runnables = set()
-for runnable in runnables_long_path.keys():
-    all_runnables.add(runnable)
-all_runnables = sorted(all_runnables, key=lambda x: int(
-    x[8:]) if x.startswith('Runnable') else float('inf'))
+all_tasks = set()
+for task in tasks_long_path.keys():
+    all_tasks.add(task)
+all_tasks = sorted(all_tasks, key=lambda x: int(
+    x[4:]) if x.startswith('Task') else float('inf'))
 
-color_palette = plt.cm.get_cmap("tab20", len(all_runnables))
-consistent_color_mapping = {runnable: color_palette(
-    i) for i, runnable in enumerate(all_runnables)}
+color_palette = plt.cm.get_cmap("tab20", len(all_tasks))
+consistent_color_mapping = {task: color_palette(
+    i) for i, task in enumerate(all_tasks)}
 
 # Plot dynamic schedule (disabled; we will show only sweep plots)
 fig_dyn, ax_dyn = plt.subplots(1, 1, figsize=(19.20, 10.80), sharex=True)
@@ -609,18 +609,18 @@ plot_schedule(schedule_to_log_data(schedule_static),
 fig_static.subplots_adjust(left=0.08, right=0.78, top=0.90, bottom=0.12)
 plt.show()
 
-# Count total runnables executed
+# Count total tasks executed
 
 
-def count_executed_runnables(schedule):
+def count_executed_tasks(schedule):
     return len(schedule)  # Each entry in schedule is one execution
 
     # After your scheduling calls
-total_dyn = count_executed_runnables(schedule_dyn)
-total_static = count_executed_runnables(schedule_static)
+total_dyn = count_executed_tasks(schedule_dyn)
+total_static = count_executed_tasks(schedule_static)
 
-print(f"Total runnable executions (Dynamic): {total_dyn}")
-print(f"Total runnable executions (Static): {total_static}")
+print(f"Total task executions (Dynamic): {total_dyn}")
+print(f"Total task executions (Static): {total_static}")
 
 
 def print_core_utilization(schedule: List[ScheduleEntry], finish_time: int, total_cores: int):
@@ -682,9 +682,9 @@ avg_exec_dyn = average_execution_time(schedule_dyn)
 avg_exec_static = average_execution_time(schedule_static)
 
 print(
-    f"Average execution time per runnable (Dynamic): {avg_exec_dyn:.2f} ms")
+    f"Average execution time per task (Dynamic): {avg_exec_dyn:.2f} ms")
 print(
-    f"Average execution time per runnable (Static): {avg_exec_static:.2f} ms")
+    f"Average execution time per task (Static): {avg_exec_static:.2f} ms")
 
 
 # Ensure output directory exists (match existing pattern ../../Images/backend/)
