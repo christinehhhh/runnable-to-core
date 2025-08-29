@@ -760,16 +760,30 @@ avg_dynamic_pas = [v / n_sets for v in sum_dynamic_pas]
 avg_static_fcfs = [v / n_sets for v in sum_static_fcfs]
 avg_static_pas = [v / n_sets for v in sum_static_pas]
 
+# Compute a shared Y-axis range for both plots
+y_values_all = avg_dynamic_fcfs + avg_dynamic_pas + \
+    avg_static_fcfs + avg_static_pas
+if y_values_all:
+    y_min = min(y_values_all)
+    y_max = max(y_values_all)
+    margin = 0.05 * (y_max - y_min) if y_max > y_min else 1.0
+    y_lower = y_min - margin
+    y_upper = y_max + margin
+else:
+    y_lower = 0.0
+    y_upper = 1.0
+
 # Plot dynamic (averaged) sweep
 plt.figure(figsize=(10, 6))
 plt.plot(sweep_cores, avg_dynamic_fcfs, marker='o', linewidth=2, label='FCFS')
 plt.plot(sweep_cores, avg_dynamic_pas, marker='s', linewidth=2, label='PAS')
 plt.xlabel('Number of cores', fontsize=14)
 plt.ylabel('Average waiting time (ms)', fontsize=14)
-plt.title('Dynamic allocation: Avg wait vs cores (mean over 50 sets)', fontsize=16)
+plt.title('Dynamic allocation: Average waiting time (mean over 50 sets)', fontsize=16)
 plt.grid(True, linestyle='--', alpha=0.5)
 plt.legend()
 plt.tight_layout()
+plt.ylim(y_lower, y_upper)
 plt.savefig(os.path.join(
     output_dir, 'dynamic_avg_wait_vs_cores_fcfs_pas_mean.pdf'), format='pdf', dpi=1200)
 
@@ -779,9 +793,10 @@ plt.plot(sweep_cores, avg_static_fcfs, marker='o', linewidth=2, label='FCFS')
 plt.plot(sweep_cores, avg_static_pas, marker='s', linewidth=2, label='PAS')
 plt.xlabel('Number of cores', fontsize=14)
 plt.ylabel('Average waiting time (ms)', fontsize=14)
-plt.title('Static allocation: Avg wait vs cores (mean over 50 sets)', fontsize=16)
+plt.title('Static allocation: Average waiting time (mean over 50 sets)', fontsize=16)
 plt.grid(True, linestyle='--', alpha=0.5)
 plt.legend()
 plt.tight_layout()
+plt.ylim(y_lower, y_upper)
 plt.savefig(os.path.join(
     output_dir, 'static_avg_wait_vs_cores_fcfs_pas_mean.pdf'), format='pdf', dpi=1200)
