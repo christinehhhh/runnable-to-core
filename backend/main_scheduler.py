@@ -572,7 +572,7 @@ testing_tasks = tasks_balanced
 
 # Re-run (disabled to only show sweep plots later)
 schedule_dyn, finish_dyn, wait_extra_dyn = run_main_scheduler(
-    testing_tasks, num_cores=6, scheduling_policy="fcf  s", allocation_policy="dynamic", I=3)
+    testing_tasks, num_cores=6, scheduling_policy="fcfs", allocation_policy="dynamic", I=3)
 schedule_static, finish_static, wait_extra_static = run_main_scheduler(
     testing_tasks, num_cores=6, scheduling_policy="fcfs", allocation_policy="static", I=3)
 
