@@ -1,0 +1,184 @@
+{
+  "Runnable1": {
+    "priority": 1,
+    "execution_time": 15,
+    "type": "periodic",
+    "period": 100,
+    "deps": []
+  },
+  "Runnable2": {
+    "priority": 2,
+    "execution_time": 20,
+    "type": "periodic",
+    "period": 180,
+    "deps": []
+  },
+  "Runnable3": {
+    "priority": 1,
+    "execution_time": 25,
+    "type": "event",
+    "period": 0,
+    "deps": []
+  },
+  "Runnable4": {
+    "priority": 4,
+    "execution_time": 30,
+    "type": "event",
+    "period": 0,
+    "deps": [
+      "Runnable3"
+    ]
+  },
+  "Runnable5": {
+    "priority": 3,
+    "execution_time": 20,
+    "type": "event",
+    "period": 0,
+    "deps": [
+      "Runnable4",
+      "Runnable1"
+    ]
+  },
+  "Runnable6": {
+    "priority": 1,
+    "execution_time": 35,
+    "type": "event",
+    "period": 0,
+    "deps": [
+      "Runnable4"
+    ]
+  },
+  "Runnable7": {
+    "priority": 2,
+    "execution_time": 40,
+    "type": "event",
+    "period": 0,
+    "deps": [
+      "Runnable6"
+    ]
+  },
+  "Runnable8": {
+    "priority": 1,
+    "execution_time": 25,
+    "type": "event",
+    "period": 0,
+    "deps": [
+      "Runnable7"
+    ]
+  },
+  "Runnable9": {
+    "priority": 0,
+    "execution_time": 30,
+    "type": "event",
+    "period": 0,
+    "deps": [
+      "Runnable8"
+    ]
+  },
+  "Runnable10": {
+    "priority": 4,
+    "execution_time": 20,
+    "type": "event",
+    "period": 0,
+    "deps": [
+      "Runnable9"
+    ]
+  },
+  "Runnable11": {
+    "priority": 2,
+    "execution_time": 45,
+    "type": "event",
+    "period": 0,
+    "deps": [
+      "Runnable10",
+      "Runnable4"
+    ]
+  },
+  "Runnable12": {
+    "priority": 0,
+    "execution_time": 30,
+    "type": "event",
+    "period": 0,
+    "deps": [
+      "Runnable11"
+    ]
+  },
+  "Runnable13": {
+    "priority": 3,
+    "execution_time": 35,
+    "type": "event",
+    "period": 0,
+    "deps": [
+      "Runnable12",
+      "Runnable9"
+    ]
+  },
+  "Runnable14": {
+    "priority": 1,
+    "execution_time": 25,
+    "type": "event",
+    "period": 0,
+    "deps": [
+      "Runnable13",
+      "Runnable10"
+    ]
+  },
+  "Runnable15": {
+    "priority": 3,
+    "execution_time": 40,
+    "type": "event",
+    "period": 0,
+    "deps": [
+      "Runnable14",
+      "Runnable5"
+    ]
+  },
+  "Runnable16": {
+    "priority": 3,
+    "execution_time": 20,
+    "type": "event",
+    "period": 0,
+    "deps": [
+      "Runnable15",
+      "Runnable14"
+    ]
+  },
+  "Runnable17": {
+    "priority": 4,
+    "execution_time": 50,
+    "type": "event",
+    "period": 0,
+    "deps": [
+      "Runnable16",
+      "Runnable13"
+    ]
+  },
+  "Runnable18": {
+    "priority": 1,
+    "execution_time": 25,
+    "type": "event",
+    "period": 0,
+    "deps": [
+      "Runnable17",
+      "Runnable10"
+    ]
+  },
+  "Runnable19": {
+    "priority": 4,
+    "execution_time": 35,
+    "type": "event",
+    "period": 0,
+    "deps": [
+      "Runnable18"
+    ]
+  },
+  "Runnable20": {
+    "priority": 2,
+    "execution_time": 30,
+    "type": "event",
+    "period": 0,
+    "deps": [
+      "Runnable19"
+    ]
+  }
+}

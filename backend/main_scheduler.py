@@ -710,12 +710,32 @@ output_dir = os.path.normpath(os.path.join(
     os.path.dirname(__file__), '../../Images/backend'))
 os.makedirs(output_dir, exist_ok=True)
 
-# Save each runnable set to an individual JSON file
+
+def _load_runnable_sets_from_json(dir_path: str):
+    try:
+        files = [f for f in os.listdir(dir_path) if f.endswith('.json')]
+        files.sort()
+        sets = []
+        for fname in files:
+            fpath = os.path.join(dir_path, fname)
+            with open(fpath, 'r') as f:
+                sets.append(json.load(f))
+        return sets
+    except Exception:
+        return []
+
+
+# Prefer using pre-saved runnable sets from JSON
 sets_dir = os.path.join(output_dir, 'runnable_sets_json')
 os.makedirs(sets_dir, exist_ok=True)
-for idx, rset in enumerate(RUNNABLE_SETS_50, start=1):
-    with open(os.path.join(sets_dir, f'runnable_set_{idx:02d}.json'), 'w') as f:
-        json.dump(rset, f, indent=2)
+RUNNABLE_SETS = _load_runnable_sets_from_json(sets_dir)
+
+# Fallback: generate and persist if none found
+if not RUNNABLE_SETS:
+    RUNNABLE_SETS = RUNNABLE_SETS_50
+    for idx, rset in enumerate(RUNNABLE_SETS, start=1):
+        with open(os.path.join(sets_dir, f'runnable_set_{idx:02d}.json'), 'w') as f:
+            json.dump(rset, f, indent=2)
 
 # Aggregate across 50 sets: Average waiting time vs Number of cores (FCFS vs PAS)
 sweep_cores = [1, 2, 3, 4, 5, 6]
@@ -725,7 +745,7 @@ sum_static_fcfs = [0.0 for _ in sweep_cores]
 sum_static_pas = [0.0 for _ in sweep_cores]
 n_sets = float(len(RUNNABLE_SETS_50))
 
-for testing_runnables in RUNNABLE_SETS_50:
+for testing_runnables in RUNNABLE_SETS:
     # Dynamic policies
     for i, cores in enumerate(sweep_cores):
         sched_d_fcfs, _, extra_d_fcfs = run_main_scheduler(
